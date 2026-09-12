@@ -1,6 +1,63 @@
+# Python virtual environments
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment files (should be mounted or passed as env vars)
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+README.md
+*.md
+TECHNICAL_SECTION_SUMMARY.md
+
+# Excalidraw files (not needed in production)
+excalidraw_files/
+*.excalidraw
+
+# Testing
+test.py
+mcp_client_test.py
+tests/
+*.test.py
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Logs
+*.log
+logs/
+
+# Database (should use external DB)
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

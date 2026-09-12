@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Docker
+docker-compose.override.yml
+.dockerignore.local
+
+# Database backups
+*.sql
+backup_*.sql
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

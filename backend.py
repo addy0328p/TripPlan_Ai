@@ -1,444 +1,272 @@
-# ============================================================
-# IMPORTS & ENVIRONMENT SETUP
-# ============================================================
-
-import os
+import os 
 import certifi
 from dotenv import load_dotenv
 
-
-# Load variables from the .env file.
-#
-# Example .env:
-#
-# GROQ_API_KEY=your_groq_key
-# DATABASE_URL=your_postgres_url
-#
 load_dotenv()
 
-
-# ============================================================
-# SSL CERTIFICATE CONFIGURATION
-# ============================================================
-
-# certifi provides trusted SSL certificates.
-#
-# These environment variables tell Python libraries
-# where to find the trusted SSL certificate bundle.
-#
-# This helps avoid SSL/HTTPS certificate errors while
-# connecting to APIs and PostgreSQL.
 os.environ["SSL_CERT_FILE"] = certifi.where()
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 
-
-# ============================================================
-# TYPING & UTILITY IMPORTS
-# ============================================================
-
 from typing import TypedDict, Annotated
-
-# operator.add will be used by LangGraph to combine
-# message lists when state is updated.
 import operator
-
-# uuid is used to generate a unique thread ID
-# when the user does not provide one.
 import uuid
-
-
-# ============================================================
-# POSTGRESQL IMPORTS
-# ============================================================
-
+import asyncio
+import concurrent.futures
 import psycopg
-
-# dict_row makes PostgreSQL query results behave like
-# Python dictionaries instead of tuples.
-#
-# Example:
-#
-# {"id": 1, "name": "Aditya"}
-#
 from psycopg.rows import dict_row
 
-
-# ============================================================
-# LANGGRAPH IMPORTS
-# ============================================================
-
-from langgraph.graph import (
-    StateGraph,
-    START,
-    END
-)
-
-# PostgresSaver is used to save LangGraph state
-# into PostgreSQL.
-#
-# This allows the application to maintain conversation
-# state using a thread_id.
+from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.postgres import PostgresSaver
-
-
-# ============================================================
-# LANGCHAIN MESSAGE IMPORTS
-# ============================================================
-
 from langchain_core.messages import (
     AnyMessage,
     HumanMessage,
     AIMessage,
     SystemMessage,
 )
-
-
-# ============================================================
-# GROQ LLM
-# ============================================================
-
-# ChatGroq allows us to use Groq-hosted LLMs through
-# LangChain.
 from langchain_groq import ChatGroq
+# from tools.tavily_tool import tavily_search
+# from tools.flight_tool import search_flights
+from mcp_client import tavily_mcp_search, aviation_mcp_call, extract_destination, forecast_mcp_search, weather_mcp_search
 
-
-# ============================================================
-# CUSTOM TOOLS
-# ============================================================
-
-# Tavily tool is responsible for web searching.
-#
-# We use it mainly for hotel information.
-from tools.tavily_tool import tavily_search
-
-
-# Flight tool searches live flight information using
-# the AviationStack API.
-from tools.flight_tool import search_flights
-
-
-# ============================================================
-# DATABASE URL FUNCTION
-# ============================================================
 
 def get_database_url():
-    """
-    Gets the PostgreSQL database URL from the .env file.
-
-    The DATABASE_URL should contain the Render PostgreSQL
-    External Database URL.
-
-    Example:
-
-    DATABASE_URL=postgresql://username:password@host/database
-    """
-
-    # Read DATABASE_URL from environment variables.
     database_url = os.getenv("DATABASE_URL")
 
-
-    # If DATABASE_URL doesn't exist, stop the application
-    # and show a useful error message.
     if not database_url:
-
         raise ValueError(
-            "DATABASE_URL is missing. "
-            "Please add your Render PostgreSQL External Database URL to .env"
+            "DATABASE_URL is missing. Please add your Render PostgreSQL External Database URL to .env"
         )
 
-
-    # Render PostgreSQL requires SSL connection.
-    #
-    # If sslmode is not already present in the URL,
-    # add:
-    #
-    #     sslmode=require
-    #
     if "sslmode=" not in database_url:
+        separator = "&" if "?" in database_url else "?"
+        database_url = f"{database_url}{separator}sslmode=require"
 
-        # If URL already contains '?', use '&'.
-        #
-        # Otherwise use '?'.
-        separator = (
-            "&"
-            if "?" in database_url
-            else "?"
-        )
-
-        database_url = (
-            f"{database_url}"
-            f"{separator}sslmode=require"
-        )
-
-
-    # Return the final database URL.
     return database_url
 
-#url=get_database_url()
-#print(url)
-# ============================================================
-# GROQ API KEY
-# ============================================================
 
-# Get Groq API key from .env.
+# =========================
+# Async runner helper
+# =========================
+# FastAPI/uvicorn already runs an event loop (anyio).
+# Calling asyncio.run() from inside a sync function that
+# is invoked from that loop raises:
+#   "This event loop is already running"  or
+#   "unknown async library, or not in async context"
+#
+# The fix: spin up a brand-new event loop in a background
+# thread that has no existing loop.  concurrent.futures
+# gives us a clean thread pool for this.
+
+def run_async(coro):
+    """Run an async coroutine safely from sync code,
+    even when called from inside a running event loop."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(_run_in_new_loop, coro)
+        return future.result()
+
+
+def _run_in_new_loop(coro):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-
-# Make sure the API key exists.
-#
-# Without the key, the LLM cannot be called.
 if not GROQ_API_KEY:
-
-    raise ValueError(
-        "GROQ_API_KEY is missing. "
-        "Please add it to your .env file."
-    )
+    raise ValueError("GROQ_API_KEY is missing. Please add it to your .env file.")
 
 
-# ============================================================
-# LLM CONFIGURATION
-# ============================================================
+# =========================
+# LLM
+# =========================
 
-# Create the Groq LLM object.
-#
-# This object will be used whenever we need the LLM
-# to generate text.
-#
-# Model:
-#     llama-3.3-70b-versatile
-#
 llm = ChatGroq(
-   model="openai/gpt-oss-120b",
+    model="openai/gpt-oss-120b",
     api_key=GROQ_API_KEY
 )
 
 
-# ============================================================
-# TRAVEL AGENT STATE
-# ============================================================
+# =========================
+# State
+# =========================
 
 class TravelState(TypedDict):
-    """
-    TravelState represents the shared state of our
-    LangGraph workflow.
-
-    Every agent can read information from this state
-    and return updates to it.
-    """
-
-
-    # --------------------------------------------------------
-    # messages
-    # --------------------------------------------------------
-    #
-    # Stores the conversation messages.
-    #
-    # Examples:
-    #
-    # HumanMessage -> user message
-    # AIMessage    -> AI response
-    # SystemMessage -> system instructions
-    #
-    # Annotated[..., operator.add] tells LangGraph:
-    #
-    # "When a node returns new messages, append them
-    #  to the existing message list instead of replacing
-    #  the complete list."
-    #
-    messages: Annotated[
-        list[AnyMessage],
-        operator.add
-    ]
-
-
-    # --------------------------------------------------------
-    # user_query
-    # --------------------------------------------------------
-    #
-    # Original query entered by the user.
-    #
-    # Example:
-    #
-    # "Plan a 7 day trip to Japan from Delhi"
-    #
+    messages: Annotated[list[AnyMessage], operator.add]
     user_query: str
-
-
-    # --------------------------------------------------------
-    # flight_results
-    # --------------------------------------------------------
-    #
-    # Stores the result returned by the flight tool.
-    #
     flight_results: str
-
-
-    # --------------------------------------------------------
-    # hotel_results
-    # --------------------------------------------------------
-    #
-    # Stores hotel information returned by Tavily.
-    #
     hotel_results: str
-
-
-    # --------------------------------------------------------
-    # itinerary
-    # --------------------------------------------------------
-    #
-    # Stores the travel itinerary generated by the LLM.
-    #
     itinerary: str
-
-
-    # --------------------------------------------------------
-    # llm_calls
-    # --------------------------------------------------------
-    #
-    # Keeps track of how many agent/LLM calls have happened.
-    #
     llm_calls: int
+    weather_results: str
 
 
-# ============================================================
-# FLIGHT AGENT
-# ============================================================
+# =========================
+# Flight Agent
+# =========================
 
+# def flight_agent(state: TravelState):
+#     query = state["user_query"]
+#     flight_data = search_flights(query)
+
+#     return {
+#         "flight_results": flight_data,
+#         "messages": [
+#             AIMessage(content="Flight results fetched.")
+#         ],
+#         "llm_calls": state.get("llm_calls", 0) + 1
+#     }
+
+
+
+
+# Flight Tool Router Prompt
+FLIGHT_AGENT_PROMPT = """
+You are a travel flight expert.
+
+User Query:
+{query}
+
+Airport Information:
+{airport_data}
+
+Airline Information:
+{airline_data}
+
+Generate:
+
+1. Likely departure airport
+2. Likely arrival airport
+3. Airlines serving this route
+4. Typical flight duration
+5. Estimated airfare range
+6. Peak season pricing warning
+7. Booking advice
+
+Return concise travel guidance.
+"""
+
+
+
+
+# Flight Agent
 def flight_agent(state: TravelState):
-    """
-    Flight Agent
+    print("\nINSIDE FLIGHT AGENT\n")
 
-    Takes the user's travel query and sends it to the
-    flight search tool.
-
-    Example:
-
-        User:
-        "Plan a trip from Delhi to Japan"
-
-        search_flights(...)
-                ↓
-        Flight information
-    """
-
-
-    # Get the original user query from the state.
     query = state["user_query"]
 
+    try:
 
-    # Call our custom flight tool.
-    #
-    # This tool internally communicates with AviationStack.
-    flight_data = search_flights(query)
+        airports = run_async(
+            aviation_mcp_call(
+                "list_airports"
+            )
+        )
+
+        airlines = run_async(
+            aviation_mcp_call(
+                "list_airlines"
+            )
+        )
 
 
-    # Return updates to the LangGraph state.
+        print("\nAIRPORTS:", airports)
+        print("\nAIRLINES:", airlines)
+
+        prompt = FLIGHT_AGENT_PROMPT.format(
+            query=query,
+            airport_data=str(airports)[:3000],
+            airline_data=str(airlines)[:3000]
+        )
+
+        response = llm.invoke([
+            SystemMessage(
+                content="You are an expert travel flight planner."
+            ),
+            HumanMessage(content=prompt)
+        ])
+
+        flight_data = response.content
+
+    except Exception as e:
+
+        flight_data = f"Flight information unavailable: {str(e)}"
+
     return {
-
-        # Save flight information.
         "flight_results": flight_data,
-
-
-        # Add an AI message to indicate that
-        # flight information has been fetched.
         "messages": [
             AIMessage(
-                content="Flight results fetched."
+                content="Flight recommendations generated"
             )
         ],
-
-
-        # Increase the call counter by 1.
-        #
-        # state.get(..., 0) means:
-        #
-        # if llm_calls exists -> use its value
-        # otherwise -> use 0
-        #
-        "llm_calls": (
-            state.get("llm_calls", 0) + 1
-        )
+        "llm_calls": state.get("llm_calls", 0) + 1
     }
 
 
-# ============================================================
-# HOTEL AGENT
-# ============================================================
+
+
+
+# =========================
+# Hotel Agent
+# =========================
 
 def hotel_agent(state: TravelState):
-    """
-    Hotel Agent
+    query = f"Best hotels for {state['user_query']}"
+    # hotel_results = tavily_search(query)
+    hotel_results = run_async(tavily_mcp_search(query))
 
-    Uses Tavily web search to find hotel information
-    based on the user's travel query.
-    """
-
-
-    # Create a search query specifically for hotels.
-    #
-    # Example:
-    #
-    # User query:
-    # "Plan a 7 day Japan trip"
-    #
-    # Generated search query:
-    #
-    # "Best hotels for Plan a 7 day Japan trip"
-    #
-    query = (
-        f"Best hotels for "
-        f"{state['user_query']}"
-    )
-
-
-    # Search the web using Tavily.
-    hotel_results = tavily_search(query)
-
-
-    # Return the hotel information to the shared state.
     return {
-
-        # Save hotel results.
         "hotel_results": hotel_results,
-
-
-        # Add a message indicating that
-        # hotel information has been fetched.
         "messages": [
-            AIMessage(
-                content="Hotel information fetched."
-            )
+            AIMessage(content="Hotel information fetched.")
         ],
-
-
-        # Increment the call counter.
-        "llm_calls": (
-            state.get("llm_calls", 0) + 1
-        )
+        "llm_calls": state.get("llm_calls", 0) + 1
     }
 
 
-# ============================================================
-# ITINERARY AGENT
-# ============================================================
+
+
+# =========================
+# Weather Agent
+# =========================
+
+def weather_agent(state: TravelState):
+
+    city = extract_destination(state["user_query"])
+
+    weather_data = run_async(
+        weather_mcp_search(city)
+    )
+
+    forecast_data = run_async(
+        forecast_mcp_search(city)
+    )
+
+    return {
+        "weather_results": f"""
+        Current Weather:
+        {weather_data}
+
+        Forecast:
+        {forecast_data}
+        """,
+        "messages": [
+            AIMessage(
+                content="Weather information fetched"
+            )
+        ]
+    }
+
+
+
+
+# =========================
+# Itinerary Agent
+# =========================
 
 def itinerary_agent(state: TravelState):
-    """
-    Itinerary Agent
-
-    Uses the LLM to create a complete travel itinerary.
-
-    It receives:
-        - User query
-        - Flight results
-        - Hotel results
-
-    and asks the LLM to combine all this information
-    into a practical itinerary.
-    """
-
-
-    # Build the prompt that will be sent to the LLM.
     prompt = f"""
 Create a complete travel itinerary.
 
@@ -451,404 +279,152 @@ Flight Results:
 Hotel Results:
 {state['hotel_results']}
 
+Weather Results:
+{state['weather_results']}
+
 Make the itinerary practical, budget-aware, and easy to follow.
 """
 
-
-    # Call the Groq LLM.
-    #
-    # We send two messages:
-    #
-    # 1. SystemMessage
-    #       Defines the role of the AI.
-    #
-    # 2. HumanMessage
-    #       Contains the actual task and travel information.
-    #
     response = llm.invoke([
-
-        SystemMessage(
-            content="You are an expert travel planner."
-        ),
-
-        HumanMessage(
-            content=prompt
-        )
+        SystemMessage(content="You are an expert travel planner."),
+        HumanMessage(content=prompt)
     ])
 
-
-    # Save the generated itinerary in state.
     return {
-
-        # response.content contains the actual text
-        # generated by the LLM.
         "itinerary": response.content,
-
-
-        # Also store the LLM response as a message.
-        "messages": [
-            response
-        ],
-
-
-        # Increment the call counter.
-        "llm_calls": (
-            state.get("llm_calls", 0) + 1
-        )
+        "messages": [response],
+        "llm_calls": state.get("llm_calls", 0) + 1
     }
 
 
-# ============================================================
-# FINAL RESPONSE AGENT
-# ============================================================
 
-# ============================================================
-# FINAL RESPONSE AGENT
-# ============================================================
-
-# ============================================================
-# FINAL RESPONSE AGENT
-# ============================================================
+# =========================
+# Final Response Agent
+# =========================
 
 def final_agent(state: TravelState):
-    """
-    Final Agent
+    final_prompt = f"""
+Generate the final travel response for the user.
 
-    Returns the itinerary generated by the itinerary agent
-    as the final user-facing response.
-    """
+User Request:
+{state['user_query']}
+
+Flights:
+{state['flight_results']}
+
+Hotels:
+{state['hotel_results']}
+
+Weather:
+{state['weather_results']}
+
+Itinerary:
+{state['itinerary']}
+
+Format the final answer beautifully using these sections:
+
+1. Trip Summary
+2. Flight Information
+3. Hotel Suggestions
+4. Weather Information
+5. Day-by-Day Itinerary
+6. Estimated Budget
+7. Final Recommendations
+
+
+Important:
+- Be clear and practical.
+- Mention that live flight API may not provide ticket prices if pricing is unavailable.
+- Include weather-based travel advice.
+- Keep the response useful for real travel planning.
+"""
+
+    response = llm.invoke([
+        SystemMessage(content="You are a professional AI travel booking assistant."),
+        HumanMessage(content=final_prompt)
+    ])
 
     return {
-        "messages": [
-            AIMessage(
-                content=state["itinerary"]
-            )
-        ]
+        "messages": [response],
+        "llm_calls": state.get("llm_calls", 0) + 1
     }
 
-# ============================================================
-# BUILD LANGGRAPH
-# ============================================================
 
-# Create a LangGraph StateGraph using our TravelState.
-#
-# This graph will control the flow between different agents.
+# =========================
+# Build Graph
+# =========================
+
 graph = StateGraph(TravelState)
 
+graph.add_node("flight_agent", flight_agent)
+graph.add_node("hotel_agent", hotel_agent)
+graph.add_node("weather_agent", weather_agent)
+graph.add_node("itinerary_agent", itinerary_agent)
+graph.add_node("final_agent", final_agent)
 
-# ============================================================
-# ADD NODES
-# ============================================================
-#
-# Each node represents one step/agent in our workflow.
-#
-# ============================================================
-
-# Flight search node.
-graph.add_node(
-    "flight_agent",
-    flight_agent
-)
+graph.add_edge(START, "flight_agent")
+graph.add_edge("flight_agent", "hotel_agent")
+graph.add_edge("hotel_agent", "weather_agent")
+graph.add_edge("weather_agent", "itinerary_agent")
+graph.add_edge("itinerary_agent", "final_agent")
+graph.add_edge("final_agent", END)
 
 
-# Hotel search node.
-graph.add_node(
-    "hotel_agent",
-    hotel_agent
-)
-
-
-# Itinerary generation node.
-graph.add_node(
-    "itinerary_agent",
-    itinerary_agent
-)
-
-
-# Final response generation node.
-graph.add_node(
-    "final_agent",
-    final_agent
-)
-
-
-# ============================================================
-# CONNECT THE NODES
-# ============================================================
-#
-# Our workflow is:
-#
-# START
-#   ↓
-# Flight Agent
-#   ↓
-# Hotel Agent
-#   ↓
-# Itinerary Agent
-#   ↓
-# Final Agent
-#   ↓
-# END
-#
-# ============================================================
-
-# Start the workflow with Flight Agent.
-graph.add_edge(
-    START,
-    "flight_agent"
-)
-
-
-# After flights are fetched,
-# move to Hotel Agent.
-graph.add_edge(
-    "flight_agent",
-    "hotel_agent"
-)
-
-
-# After hotel information is fetched,
-# move to Itinerary Agent.
-graph.add_edge(
-    "hotel_agent",
-    "itinerary_agent"
-)
-
-
-# After itinerary is generated,
-# move to Final Agent.
-graph.add_edge(
-    "itinerary_agent",
-    "final_agent"
-)
-
-
-# After final response is generated,
-# terminate the workflow.
-graph.add_edge(
-    "final_agent",
-    END
-)
-
-
-# ============================================================
-# POSTGRESQL CHECKPOINTER
-# ============================================================
-
-# Get PostgreSQL connection URL.
+# =========================
+# PostgreSQL Checkpointer
+# =========================
 DATABASE_URL = get_database_url()
 
-
-# Create a PostgreSQL connection.
 _conn = psycopg.connect(
-
-    # Database URL.
     DATABASE_URL,
-
-    # Automatically commit database transactions.
     autocommit=True,
-
-    # Return database rows as dictionaries.
     row_factory=dict_row
 )
 
-
-# ============================================================
-# CREATE POSTGRES CHECKPOINTER
-# ============================================================
-
-# PostgresSaver stores LangGraph checkpoints in PostgreSQL.
-#
-# This allows the graph to maintain state for different
-# conversation threads.
 checkpointer = PostgresSaver(_conn)
-
-
-# Create the required checkpoint tables/schema
-# in PostgreSQL if they don't already exist.
 checkpointer.setup()
 
-
-# ============================================================
-# COMPILE THE GRAPH
-# ============================================================
-
-# Compile the graph and attach PostgreSQL checkpointing.
-#
-# travel_graph is now the executable version of our
-# LangGraph workflow.
-travel_graph = graph.compile(
-    checkpointer=checkpointer
-)
+travel_graph = graph.compile(checkpointer=checkpointer)
 
 
-# ============================================================
-# FUNCTION USED BY FASTAPI
-# ============================================================
 
-def run_travel_agent(
-    user_input: str,
-    thread_id: str | None = None
-):
-    """
-    Main function that can be called from FastAPI.
+# =========================
+# Function for FastAPI
+# =========================
 
-    Parameters:
-        user_input:
-            User's travel request.
-
-        thread_id:
-            Unique conversation ID.
-
-            If provided, the same conversation/thread
-            can continue.
-
-            If not provided, a new ID is generated.
-
-    Returns:
-        Dictionary containing:
-            - thread_id
-            - final answer
-            - flight results
-            - hotel results
-            - itinerary
-            - number of calls
-    """
-
-
-    # ========================================================
-    # Create thread ID if one wasn't provided.
-    # ========================================================
-
+def run_travel_agent(user_input: str, thread_id: str | None = None):
     if not thread_id:
+        thread_id = f"user_{uuid.uuid4().hex}"
 
-        # uuid.uuid4() creates a random UUID.
-        #
-        # .hex converts it into a compact string without
-        # hyphens.
-        #
-        # Example:
-        #
-        # user_7a8c9d....
-        #
-        thread_id = (
-            f"user_{uuid.uuid4().hex}"
-        )
-
-
-    # ========================================================
-    # LangGraph configuration
-    # ========================================================
-    #
-    # thread_id is very important for checkpointing.
-    #
-    # PostgreSQL uses this ID to identify which conversation
-    # the state belongs to.
-    #
     config = {
         "configurable": {
             "thread_id": thread_id
         }
     }
 
-
-    # ========================================================
-    # Run the LangGraph workflow
-    # ========================================================
-
     result = travel_graph.invoke(
-
-        # Initial state of the graph.
         {
-            # Store user's message.
             "messages": [
-                HumanMessage(
-                    content=user_input
-                )
+                HumanMessage(content=user_input)
             ],
-
-
-            # Save original user query.
             "user_query": user_input,
-
-
-            # Initially no flight results.
             "flight_results": "",
-
-
-            # Initially no hotel results.
             "hotel_results": "",
-
-
-            # Initially no itinerary.
+            "weather_results": "",
             "itinerary": "",
-
-
-            # No agent/LLM calls have happened yet.
             "llm_calls": 0
         },
-
-
-        # Pass thread configuration so that
-        # PostgreSQL checkpointing knows which conversation
-        # this execution belongs to.
         config=config
     )
 
-
-    # ========================================================
-    # Get final answer
-    # ========================================================
-    #
-    # Since Final Agent is the last node, its response
-    # is the last message in the messages list.
-    #
-    final_answer = (
-        result["messages"][-1].content
-    )
-
-
-    # ========================================================
-    # Return API-friendly response
-    # ========================================================
+    final_answer = result["messages"][-1].content
 
     return {
-
-        # Conversation/thread ID.
-        #
-        # FastAPI can return this to the frontend so that
-        # future requests can continue the same conversation.
         "thread_id": thread_id,
-
-
-        # Final AI-generated travel response.
         "answer": final_answer,
-
-
-        # Raw flight information.
-        "flight_results": result.get(
-            "flight_results",
-            ""
-        ),
-
-
-        # Raw hotel search results.
-        "hotel_results": result.get(
-            "hotel_results",
-            ""
-        ),
-
-
-        # Generated itinerary.
-        "itinerary": result.get(
-            "itinerary",
-            ""
-        ),
-
-
-        # Number of calls performed by agents.
-        "llm_calls": result.get(
-            "llm_calls",
-            0
-        ),
+        "flight_results": result.get("flight_results", ""),
+        "hotel_results": result.get("hotel_results", ""),
+        "weather_results": result.get("weather_results", ""),
+        "itinerary": result.get("itinerary", ""),
+        "llm_calls": result.get("llm_calls", 0),
     }

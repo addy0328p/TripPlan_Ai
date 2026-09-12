@@ -2,127 +2,479 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>TripMate AI</title>
-
+    <title>TripMate AI — India's Smart Travel Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
 
+    <!-- Animated background -->
     <div class="page-bg">
-        <div class="gradient-circle circle-1"></div>
-        <div class="gradient-circle circle-2"></div>
-        <div class="gradient-circle circle-3"></div>
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="grid-overlay"></div>
     </div>
 
     <main class="app-container">
 
+        <!-- ===== HERO ===== -->
         <section class="hero-section">
-            <div class="badge">
-                ✈️ TripMate AI — A Multi-Agent Travel Planner with LangGraph
+
+            <div class="badge-row">
+                <span class="badge">
+                    <span class="badge-dot"></span>
+                    AI-Powered
+                </span>
+                <span class="badge badge-orange">
+                    🇮🇳 Made for India
+                </span>
             </div>
 
-            <h1>
-                Plan Your Perfect Trip with AI
+            <h1 class="hero-title">
+                Plan Your Dream Trip<br>
+                <span class="gradient-text">Across India & Beyond</span>
             </h1>
 
-            <p>
-                Search flights, discover hotels, and generate a complete travel itinerary using a multi-agent LangGraph system.
+            <p class="hero-subtitle">
+                From the ghats of Varanasi to the beaches of Goa, the hills of Shimla to the backwaters of Kerala —
+                let AI plan every detail of your perfect trip.
             </p>
+
+            <!-- Stats row -->
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-number">29+</span>
+                    <span class="stat-label">Indian States</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">500+</span>
+                    <span class="stat-label">Destinations</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">AI</span>
+                    <span class="stat-label">Multi-Agent</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">Live</span>
+                    <span class="stat-label">Flight Data</span>
+                </div>
+            </div>
+
         </section>
 
+
+        <!-- ===== PLANNER CARD ===== -->
         <section class="planner-card">
 
             <div class="card-header">
-                <div>
+                <div class="card-header-text">
                     <h2>Where do you want to go?</h2>
-                    <p>
-                        Example: Plan a complete 7 days Japan trip from India under 2 lakhs.
-                    </p>
+                    <p>Describe your dream trip — include duration, budget, and starting city.</p>
                 </div>
-
                 <div class="status-pill">
-                    <span class="status-dot"></span>
+                    <span class="pulse-dot"></span>
                     Online
                 </div>
             </div>
 
-            <div class="input-area">
+            <!-- Input -->
+            <div class="input-wrapper">
+                <div class="input-icon">✈️</div>
                 <textarea
                     id="userInput"
-                    placeholder="Plan a complete 7 days Japan trip including flights, hotels and sightseeing under 2 lakhs..."
+                    placeholder="Plan a complete 7 days Goa trip from Delhi including flights, hotels and sightseeing under ₹50,000..."
+                    rows="3"
                 ></textarea>
-
                 <button id="sendBtn" onclick="sendMessage()">
-                    <span id="btnText">Generate Plan</span>
+                    <span id="btnText">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Generate Plan
+                    </span>
                     <span id="btnLoader" class="loader hidden"></span>
                 </button>
             </div>
 
-            <div class="quick-prompts">
-                <button onclick="setPrompt('Plan a complete 7 days Japan trip from Bangladesh including flights, hotels and sightseeing under 2 lakhs.')">
-                    Japan Trip
-                </button>
+            <!-- Popular Indian Trips -->
+            <div class="prompts-section">
+                <p class="prompts-label">Popular trips from India</p>
+                <div class="quick-prompts">
+                    <button onclick="setPrompt('Plan a complete 7 days Goa trip from Mumbai including flights, beach hotels and nightlife under ₹40,000.')">
+                        🏖️ Goa from Mumbai
+                    </button>
+                    <button onclick="setPrompt('Plan a 5 days Kerala backwaters trip from Bangalore with houseboat stay, flights and local sightseeing.')">
+                        🌿 Kerala Backwaters
+                    </button>
+                    <button onclick="setPrompt('Plan a 6 days Rajasthan heritage trip from Delhi covering Jaipur, Jodhpur and Udaipur with palace hotels under ₹60,000.')">
+                        🏰 Rajasthan Heritage
+                    </button>
+                    <button onclick="setPrompt('Plan a 5 days Manali trip from Delhi including Volvo bus, hotels, Rohtang Pass and adventure activities under ₹25,000.')">
+                        🏔️ Manali Adventure
+                    </button>
+                    <button onclick="setPrompt('Plan a 7 days Japan trip from Delhi including flights, hotels and sightseeing under ₹1,50,000.')">
+                        🗾 Japan from Delhi
+                    </button>
+                    <button onclick="setPrompt('Plan a 5 days Dubai trip from Mumbai with flights, luxury hotels and sightseeing under ₹80,000.')">
+                        🏙️ Dubai from Mumbai
+                    </button>
+                    <button onclick="setPrompt('Plan a 4 days Andaman trip from Chennai with flights, beach resorts and water sports under ₹35,000.')">
+                        🐚 Andaman Islands
+                    </button>
+                    <button onclick="setPrompt('Give me live flight information from Delhi to all major cities.')">
+                        🛫 Live Flights
+                    </button>
+                </div>
+            </div>
 
-                <button onclick="setPrompt('Plan a 5 days Dubai trip from Dhaka with flights, hotels and sightseeing.')">
-                    Dubai Trip
-                </button>
-
-                <button onclick="setPrompt('Plan a 7 days Thailand trip from Bangladesh with budget hotels and sightseeing.')">
-                    Thailand Trip
-                </button>
-
-                <button onclick="setPrompt('Give me all country flight info.')">
-                    Global Flights
-                </button>
+            <!-- Popular destinations scroll -->
+            <div class="destinations-row">
+                <span class="dest-chip">🕌 Agra</span>
+                <span class="dest-chip">🌸 Shimla</span>
+                <span class="dest-chip">🏖️ Goa</span>
+                <span class="dest-chip">🌿 Munnar</span>
+                <span class="dest-chip">🏔️ Leh-Ladakh</span>
+                <span class="dest-chip">🎭 Varanasi</span>
+                <span class="dest-chip">🐯 Ranthambore</span>
+                <span class="dest-chip">🌊 Pondicherry</span>
+                <span class="dest-chip">🏔️ Darjeeling</span>
+                <span class="dest-chip">🛕 Tirupati</span>
             </div>
 
         </section>
 
+
+        <!-- ===== ERROR BOX ===== -->
+        <section id="errorBox" class="error-box hidden"></section>
+
+
+        <!-- ===== HOW IT WORKS SECTION ===== -->
+        <section class="tech-section">
+            <div class="tech-header">
+                <span class="tech-eyebrow">🔬 Technical Deep Dive</span>
+                <h2 class="tech-title">How TripMate AI Works</h2>
+                <p class="tech-subtitle">
+                    A multi-agent AI system built with LangGraph, MCP protocol, and real-time APIs
+                    to solve the fragmented travel planning problem.
+                </p>
+            </div>
+
+            <!-- Problem Statement -->
+            <div class="tech-card problem-card">
+                <div class="card-icon">❌</div>
+                <h3>The Problem We're Solving</h3>
+                <p>
+                    Planning a trip means jumping between <strong>10+ browser tabs</strong> — flight comparison sites,
+                    hotel booking platforms, weather forecasts, destination guides, budget calculators, and travel blogs.
+                </p>
+                <p>
+                    Most AI assistants only provide <strong>generic suggestions</strong> without live data.
+                    They can't check real flight availability, current weather, or accurate hotel pricing.
+                </p>
+                <p class="highlight-text">
+                    <strong>TripMate AI solves this</strong> by connecting specialist agents to real-time APIs through
+                    a unified MCP layer, giving you one coherent, up-to-date itinerary instead of scattered information.
+                </p>
+            </div>
+
+            <!-- Architecture Diagram Image -->
+            <div class="tech-card diagram-card">
+                <div class="card-icon">🏗️</div>
+                <h3>System Architecture</h3>
+                <p class="card-desc">
+                    Complete visual overview of TripMate AI's multi-agent system, MCP protocol integration, and data flow:
+                </p>
+                <div class="architecture-image-container">
+                    <img src="/static/architecture.png" alt="TripMate AI Architecture Diagram" class="architecture-diagram">
+                    <div class="image-caption">
+                        Full system architecture showing agent workflow, MCP servers, and API integrations
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Agent Architecture -->
+            <div class="tech-card">
+                <div class="card-icon">🤖</div>
+                <h3>Multi-Agent Workflow Breakdown</h3>
+                <p class="card-desc">
+                    Built with <strong>LangGraph</strong>, TripMate uses 5 specialized AI agents that work sequentially,
+                    each handling a specific aspect of trip planning:
+                </p>
+
+                <div class="agent-flow">
+                    <div class="agent-node">
+                        <div class="agent-emoji">✈️</div>
+                        <div class="agent-name">Flight Agent</div>
+                        <div class="agent-desc">Searches airports, airlines, routes via AviationStack API</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="agent-node">
+                        <div class="agent-emoji">🏨</div>
+                        <div class="agent-name">Hotel Agent</div>
+                        <div class="agent-desc">Finds accommodation using Tavily web search</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="agent-node">
+                        <div class="agent-emoji">🌤️</div>
+                        <div class="agent-name">Weather Agent</div>
+                        <div class="agent-desc">Gets current & forecast data from OpenWeatherMap</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="agent-node">
+                        <div class="agent-emoji">📋</div>
+                        <div class="agent-name">Itinerary Agent</div>
+                        <div class="agent-desc">Creates day-by-day plan with budget estimates</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="agent-node">
+                        <div class="agent-emoji">✨</div>
+                        <div class="agent-name">Final Agent</div>
+                        <div class="agent-desc">Formats complete travel plan with recommendations</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MCP Protocol -->
+            <div class="tech-card mcp-card">
+                <div class="card-icon">🔌</div>
+                <h3>What is MCP (Model Context Protocol)?</h3>
+                <p class="card-desc">
+                    MCP is like a <strong>"universal USB-C port"</strong> for AI. Instead of building custom integrations
+                    for every API, MCP provides a standardized way to connect AI models to external tools and data sources.
+                </p>
+
+                <div class="comparison-grid">
+                    <div class="comparison-item bad">
+                        <div class="comparison-label">❌ Without MCP</div>
+                        <ul class="comparison-list">
+                            <li>Custom API wrapper for each service</li>
+                            <li>Different auth methods per integration</li>
+                            <li>Manual error handling everywhere</li>
+                            <li>Hard to add new tools</li>
+                        </ul>
+                    </div>
+                    <div class="comparison-item good">
+                        <div class="comparison-label">✅ With MCP</div>
+                        <ul class="comparison-list">
+                            <li>Standardized tool interface</li>
+                            <li>Unified connection protocol</li>
+                            <li>Built-in error handling</li>
+                            <li>Plug-and-play new services</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mcp-architecture">
+                    <div class="mcp-layer">
+                        <div class="mcp-box mcp-host">
+                            <div class="mcp-box-label">MCP HOST</div>
+                            <div class="mcp-box-title">LangGraph Agent</div>
+                            <div class="mcp-box-tech">Python + LangChain</div>
+                        </div>
+                    </div>
+                    <div class="mcp-connector-line">
+                        <span class="connector-label">langchain-mcp-adapters</span>
+                        <span class="connector-sublabel">SSE / stdio transport</span>
+                    </div>
+                    <div class="mcp-layer">
+                        <div class="mcp-box mcp-server">
+                            <div class="mcp-box-label">MCP SERVERS</div>
+                            <div class="mcp-tools-grid">
+                                <span class="mcp-tool">Tavily MCP Server</span>
+                                <span class="mcp-tool">AviationStack MCP</span>
+                                <span class="mcp-tool">Weather MCP (Custom)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mcp-connector-line">
+                        <span class="connector-label">REST APIs</span>
+                    </div>
+                    <div class="mcp-layer">
+                        <div class="mcp-box mcp-apis">
+                            <div class="mcp-box-label">EXTERNAL APIs</div>
+                            <div class="mcp-tools-grid">
+                                <span class="mcp-tool">Tavily Search API</span>
+                                <span class="mcp-tool">AviationStack API</span>
+                                <span class="mcp-tool">OpenWeatherMap API</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tech Stack -->
+            <div class="tech-card">
+                <div class="card-icon">🛠️</div>
+                <h3>Tech Stack</h3>
+                <div class="stack-grid">
+                    <div class="stack-card">
+                        <div class="stack-category">Backend Framework</div>
+                        <div class="stack-item-name">FastAPI</div>
+                        <div class="stack-item-desc">High-performance async Python API</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Agent Orchestration</div>
+                        <div class="stack-item-name">LangGraph</div>
+                        <div class="stack-item-desc">Multi-agent workflow coordinator</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">LLM Framework</div>
+                        <div class="stack-item-name">LangChain</div>
+                        <div class="stack-item-desc">AI model integration layer</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Language Model</div>
+                        <div class="stack-item-name">Groq (GPT-OSS-120B)</div>
+                        <div class="stack-item-desc">Ultra-fast LLM inference</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Tool Protocol</div>
+                        <div class="stack-item-name">MCP (Model Context Protocol)</div>
+                        <div class="stack-item-desc">Standardized tool interface</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Database</div>
+                        <div class="stack-item-name">PostgreSQL</div>
+                        <div class="stack-item-desc">Conversation state persistence</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Web Search</div>
+                        <div class="stack-item-name">Tavily API</div>
+                        <div class="stack-item-desc">Hotel & destination research</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Flight Data</div>
+                        <div class="stack-item-name">AviationStack API</div>
+                        <div class="stack-item-desc">Live airport & airline info</div>
+                    </div>
+                    <div class="stack-card">
+                        <div class="stack-category">Weather Data</div>
+                        <div class="stack-item-name">OpenWeatherMap API</div>
+                        <div class="stack-item-desc">Current & forecast weather</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Flow -->
+            <div class="tech-card">
+                <div class="card-icon">🔄</div>
+                <h3>Request Flow</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-number">1</div>
+                        <div class="flow-content">
+                            <strong>User Input</strong>
+                            <span>Natural language query via web interface</span>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">2</div>
+                        <div class="flow-content">
+                            <strong>FastAPI Backend</strong>
+                            <span>Receives POST request at /api/travel</span>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">3</div>
+                        <div class="flow-content">
+                            <strong>LangGraph Orchestration</strong>
+                            <span>Routes query through agent pipeline</span>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">4</div>
+                        <div class="flow-content">
+                            <strong>MCP Tool Calls</strong>
+                            <span>Agents invoke real-time APIs via MCP servers</span>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">5</div>
+                        <div class="flow-content">
+                            <strong>Data Synthesis</strong>
+                            <span>LLM combines all agent results</span>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-number">6</div>
+                        <div class="flow-content">
+                            <strong>Response</strong>
+                            <span>Formatted travel plan returned to frontend</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ===== RESULT SECTION ===== -->
         <section id="resultSection" class="result-section hidden">
 
             <div class="result-header">
                 <div>
                     <h2>Your AI Travel Plan</h2>
-                    <p id="threadInfo">Thread ID: -</p>
+                    <p id="threadInfo" class="thread-info">Thread ID: —</p>
                 </div>
-
                 <div class="result-actions">
-                    <button class="copy-btn" onclick="copyResult()">
+                    <button class="action-btn copy-btn" onclick="copyResult()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                         Copy
                     </button>
-
-                    <button class="download-btn" onclick="downloadPDF()">
+                    <button class="action-btn download-btn" onclick="downloadPDF()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Download PDF
                     </button>
                 </div>
             </div>
 
             <div id="pdfContent" class="pdf-content">
-                <h1 class="pdf-title">AI Travel Plan</h1>
+                <h1 class="pdf-title">AI Travel Plan — TripMate AI</h1>
                 <div id="resultBox" class="result-box"></div>
             </div>
 
         </section>
 
-        <section id="errorBox" class="error-box hidden"></section>
-
     </main>
 
+    <!-- ===== FOOTER ===== -->
     <footer>
-        Built with FastAPI, LangGraph, Groq, PostgreSQL, Tavily and AviationStack
+        <div class="footer-inner">
+            <p class="footer-brand">TripMate AI</p>
+            <p class="footer-sub">Built with FastAPI · LangGraph · Groq · PostgreSQL · Tavily · AviationStack · OpenWeatherMap</p>
+
+            <div class="footer-author">
+                <span class="footer-love">Made with ❤️ in India by</span>
+                <span class="footer-name">Aditya Pandey</span>
+            </div>
+
+            <div class="footer-links">
+                <a href="https://github.com/addy0328p" target="_blank" rel="noopener noreferrer" class="footer-link footer-link-github">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                    addy0328p
+                </a>
+                <span class="footer-link-sep">·</span>
+                <a href="https://www.linkedin.com/in/aditya-p01/" target="_blank" rel="noopener noreferrer" class="footer-link footer-link-linkedin">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                    aditya-p01
+                </a>
+            </div>
+        </div>
     </footer>
 
-    <!-- Markdown Renderer -->
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-    <!-- PDF Download Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-    <!-- Your Custom JS -->
     <script src="/static/script.js"></script>
 
 </body>
