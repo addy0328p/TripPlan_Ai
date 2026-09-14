@@ -55,32 +55,85 @@ a { text-decoration: none; }
     z-index: 0;
     pointer-events: none;
     overflow: hidden;
+    /* deep cyber-blue base glow */
+    background:
+        radial-gradient(ellipse 130% 70% at 50% -10%, rgba(0,200,255,.09) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 85% 90%,  rgba(0,100,255,.07) 0%, transparent 55%);
 }
 
+/* Pulsing cyber grid */
 .grid-lines {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(59,130,246,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(59,130,246,.04) 1px, transparent 1px);
-    background-size: 60px 60px;
+        linear-gradient(rgba(0,212,255,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.08) 1px, transparent 1px);
+    background-size: 56px 56px;
+    animation: gridPulse 5s ease-in-out infinite;
+}
+@keyframes gridPulse {
+    0%,100% { opacity: .6; }
+    50%      { opacity: 1; }
 }
 
+/* Scanlines */
+.bg-canvas::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,.07) 3px,
+        rgba(0,0,0,.07) 4px
+    );
+    pointer-events: none;
+}
+
+/* Sweeping laser line */
+.bg-canvas::before {
+    content: '';
+    position: absolute;
+    left: -60%;
+    width: 55%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,.55), transparent);
+    animation: laserSweep 9s linear infinite;
+}
+@keyframes laserSweep {
+    0%   { top: 10%; left: -60%; }
+    25%  { top: 38%; left: 160%; }
+    50%  { top: 60%; left: -60%; }
+    75%  { top: 82%; left: 160%; }
+    100% { top: 10%; left: -60%; }
+}
+
+/* Orbs — pure cyber-blue palette */
 .orb {
     position: absolute;
     border-radius: 50%;
     filter: blur(90px);
     animation: drift 14s ease-in-out infinite;
 }
-.orb-1 { width: 560px; height: 560px; top: -10%; left: -8%;
-          background: radial-gradient(circle, rgba(37,99,235,.22), transparent 70%);
-          animation-delay: 0s; }
-.orb-2 { width: 420px; height: 420px; top: 20%; right: -10%;
-          background: radial-gradient(circle, rgba(139,92,246,.2), transparent 70%);
-          animation-delay: -5s; }
-.orb-3 { width: 340px; height: 340px; bottom: 15%; left: 5%;
-          background: radial-gradient(circle, rgba(249,115,22,.12), transparent 70%);
-          animation-delay: -9s; }
+.orb-1 {
+    width: 620px; height: 620px;
+    top: -15%; left: -10%;
+    background: radial-gradient(circle, rgba(0,180,255,.2), transparent 70%);
+    animation-delay: 0s;
+}
+.orb-2 {
+    width: 460px; height: 460px;
+    top: 22%; right: -12%;
+    background: radial-gradient(circle, rgba(0,80,220,.18), transparent 70%);
+    animation-delay: -5s;
+}
+.orb-3 {
+    width: 360px; height: 360px;
+    bottom: 10%; left: 6%;
+    background: radial-gradient(circle, rgba(0,230,255,.13), transparent 70%);
+    animation-delay: -9s;
+}
 
 @keyframes drift {
     0%,100% { transform: translate(0,0) scale(1); }
@@ -88,17 +141,18 @@ a { text-decoration: none; }
     66%      { transform: translate(-18px,18px) scale(.96); }
 }
 
-/* floating particles – injected by JS */
+/* Floating particles — cyber-blue glowing dots */
 .particle {
     position: absolute;
     border-radius: 50%;
-    background: rgba(255,255,255,.08);
+    background: rgba(0,212,255,.3);
+    box-shadow: 0 0 6px rgba(0,212,255,.5);
     animation: floatUp linear infinite;
     pointer-events: none;
 }
 @keyframes floatUp {
-    0%   { transform: translateY(0) scale(1); opacity: .6; }
-    100% { transform: translateY(-100vh) scale(.4); opacity: 0; }
+    0%   { transform: translateY(0) scale(1);   opacity: .8; }
+    100% { transform: translateY(-100vh) scale(.3); opacity: 0; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -266,8 +320,8 @@ a { text-decoration: none; }
     position: absolute;
     top: -20%; left: 50%;
     transform: translateX(-50%);
-    width: 800px; height: 600px;
-    background: radial-gradient(ellipse, rgba(59,130,246,.12) 0%, transparent 70%);
+    width: 900px; height: 600px;
+    background: radial-gradient(ellipse, rgba(0,200,255,.13) 0%, transparent 65%);
     pointer-events: none;
 }
 
@@ -413,45 +467,7 @@ a { text-decoration: none; }
 .hero-cta:hover { transform: translateY(-3px); box-shadow: 0 18px 50px rgba(124,58,237,.55); }
 .hero-cta:hover::after { opacity: 1; }
 
-/* Scroll hint */
-.hero-scroll-hint {
-    position: absolute;
-    bottom: 32px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: var(--txt3);
-    font-size: .72rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    animation: fadeInUp 1s ease 2s both;
-}
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-.scroll-mouse {
-    width: 22px; height: 36px;
-    border: 2px solid rgba(148,163,184,.3);
-    border-radius: 99px;
-    display: flex;
-    justify-content: center;
-    padding-top: 6px;
-}
-.scroll-wheel {
-    width: 4px; height: 8px;
-    border-radius: 99px;
-    background: rgba(148,163,184,.5);
-    animation: wheel 1.8s ease-in-out infinite;
-}
-@keyframes wheel {
-    0%   { transform: translateY(0); opacity: 1; }
-    80%  { transform: translateY(10px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 0; }
-}
+
 
 /* ═══════════════════════════════════════════════
    PLANNER CARD
