@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from backend import run_travel_agent
+from backend import run_travel_agent, resume_travel_agent
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(
     title="TripMate AI",
     description="LangGraph Multi-Agent Travel Planner with FastAPI Frontend",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 
@@ -39,6 +39,12 @@ templates = Jinja2Templates(
 class TravelRequest(BaseModel):
     message: str
     thread_id: str | None = None
+
+
+class ApprovalRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    feedback: str = ""
 
 
 # Thread pool for running the synchronous LangGraph agent
@@ -86,15 +92,85 @@ async def travel_planner(request_data: TravelRequest):
                 "success": True,
                 "thread_id": result["thread_id"],
                 "answer": result["answer"],
-                "flight_results": result["flight_results"],
-                "hotel_results": result["hotel_results"],
-                "itinerary": result["itinerary"],
-                "llm_calls": result["llm_calls"],
+                "requires_approval": result.get("requires_approval", False),
+                "approval_request": result.get("approval_request", ""),
+                "flight_results": result.get("flight_results", ""),
+                "hotel_results": result.get("hotel_results", ""),
+                "weather_results": result.get("weather_results", ""),
+                "budget_results": result.get("budget_results", ""),
+                "itinerary": result.get("itinerary", ""),
+                "selected_agents": result.get("selected_agents", []),
+                "trip_constraints": result.get("trip_constraints", {}),
+                "supervisor_reasoning": result.get("supervisor_reasoning", ""),
+                "guardrail_allowed": result.get("guardrail_allowed", True),
+                "guardrail_reason": result.get("guardrail_reason", ""),
+                "approved": result.get("approved"),
+                "human_feedback": result.get("human_feedback", ""),
+                "llm_calls": result.get("llm_calls", 0),
             }
         )
 
     except Exception as e:
         print("ERROR:", e)
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e)
+            }
+        )
+
+
+@app.post("/api/travel/approve")
+async def approve_itinerary(request_data: ApprovalRequest):
+    """Human-in-the-Loop: approve or request changes to the draft itinerary."""
+    try:
+        if not request_data.thread_id:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "thread_id is required."
+                }
+            )
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            _executor,
+            lambda: resume_travel_agent(
+                thread_id=request_data.thread_id,
+                approved=request_data.approved,
+                feedback=request_data.feedback.strip(),
+            )
+        )
+
+        return JSONResponse(
+            content={
+                "success": True,
+                "thread_id": result["thread_id"],
+                "answer": result["answer"],
+                "requires_approval": result.get("requires_approval", False),
+                "approval_request": result.get("approval_request", ""),
+                "flight_results": result.get("flight_results", ""),
+                "hotel_results": result.get("hotel_results", ""),
+                "weather_results": result.get("weather_results", ""),
+                "budget_results": result.get("budget_results", ""),
+                "itinerary": result.get("itinerary", ""),
+                "selected_agents": result.get("selected_agents", []),
+                "trip_constraints": result.get("trip_constraints", {}),
+                "supervisor_reasoning": result.get("supervisor_reasoning", ""),
+                "guardrail_allowed": result.get("guardrail_allowed", True),
+                "guardrail_reason": result.get("guardrail_reason", ""),
+                "approved": result.get("approved"),
+                "human_feedback": result.get("human_feedback", ""),
+                "llm_calls": result.get("llm_calls", 0),
+            }
+        )
+
+    except Exception as e:
+        print("APPROVAL ERROR:", e)
         traceback.print_exc()
 
         return JSONResponse(

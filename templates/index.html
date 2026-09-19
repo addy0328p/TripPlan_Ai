@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TripMate AI — India's Smart Travel Planner</title>
+    <meta name="description" content="AI-powered multi-agent travel planner with live flight data, hotel search, weather forecasts, budget analysis, and human-in-the-loop approval. Built with LangGraph, Groq, and MCP.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -50,6 +51,9 @@
             <span class="badge badge-blue">
                 <span class="live-dot"></span> Live API Data
             </span>
+            <span class="badge badge-purple">
+                🛡️ Input Guardrails
+            </span>
             <span class="badge badge-orange">🇮🇳 Made for India</span>
         </div>
 
@@ -59,7 +63,7 @@
         </h1>
 
         <p class="hero-sub" data-reveal data-delay="2">
-            Real flights · Real weather · Real hotels —<br class="br-mobile"> all in one AI-crafted itinerary.
+            Real flights · Real weather · Real hotels · Budget analysis —<br class="br-mobile"> all in one AI-crafted itinerary with human approval.
         </p>
 
         <div class="hero-stats" data-reveal data-delay="3">
@@ -74,8 +78,13 @@
             </div>
             <div class="stat-sep"></div>
             <div class="stat">
-                <b>5</b>
+                <b>7</b>
                 <span>AI Agents</span>
+            </div>
+            <div class="stat-sep"></div>
+            <div class="stat">
+                <b>HITL</b>
+                <span>Human Review</span>
             </div>
             <div class="stat-sep"></div>
             <div class="stat">
@@ -167,18 +176,30 @@
         <div class="loading-ring"></div>
         <div class="loading-steps">
             <div class="loading-step active" id="ls1">
+                <span class="ls-icon">🛡️</span>
+                <span>Validating request (Guardrail)...</span>
+            </div>
+            <div class="loading-step" id="ls2">
+                <span class="ls-icon">🧠</span>
+                <span>Supervisor selecting agents...</span>
+            </div>
+            <div class="loading-step" id="ls3">
                 <span class="ls-icon">✈️</span>
                 <span>Searching flights...</span>
             </div>
-            <div class="loading-step" id="ls2">
+            <div class="loading-step" id="ls4">
                 <span class="ls-icon">🏨</span>
                 <span>Finding hotels...</span>
             </div>
-            <div class="loading-step" id="ls3">
+            <div class="loading-step" id="ls5">
                 <span class="ls-icon">🌤️</span>
                 <span>Checking weather...</span>
             </div>
-            <div class="loading-step" id="ls4">
+            <div class="loading-step" id="ls6">
+                <span class="ls-icon">💰</span>
+                <span>Analyzing budget...</span>
+            </div>
+            <div class="loading-step" id="ls7">
                 <span class="ls-icon">📋</span>
                 <span>Crafting itinerary...</span>
             </div>
@@ -187,6 +208,107 @@
 
     <!-- Error -->
     <div id="errorBox" class="error-card hidden"></div>
+
+    <!-- Guardrail blocked -->
+    <div id="guardrailBlocked" class="guardrail-blocked-card glass-card hidden">
+        <div class="guardrail-blocked-icon">🛡️</div>
+        <div class="guardrail-blocked-body">
+            <h3>Request Blocked by Input Guardrail</h3>
+            <p id="guardrailBlockedReason"></p>
+            <button class="btn-ghost" onclick="resetToPlanner()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 105.13-12.79L1 10"/></svg>
+                Try Again
+            </button>
+        </div>
+    </div>
+
+</div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     HITL APPROVAL
+══════════════════════════════════════════ -->
+<section id="approvalSection" class="section hidden">
+<div class="container">
+
+    <div class="approval-card glass-card">
+
+        <div class="approval-head">
+            <div class="approval-title-row">
+                <div class="approval-icon-wrap">👤</div>
+                <div>
+                    <h2>Human Review Required</h2>
+                    <p id="approvalThreadInfo" class="thread-id">—</p>
+                </div>
+            </div>
+            <div class="approval-status-pill">
+                <span class="pulse-dot"></span> Awaiting Your Review
+            </div>
+        </div>
+
+        <!-- Agent Activity Panel -->
+        <div class="agent-activity-panel" id="agentActivityPanel">
+            <button class="agent-activity-toggle" id="agentActivityToggle" onclick="toggleAgentPanel()">
+                <span>🤖 Agent Activity</span>
+                <svg class="toggle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="agent-activity-body hidden" id="agentActivityBody">
+                <!-- Guardrail status -->
+                <div class="activity-row" id="guardrailStatusRow">
+                    <span class="activity-label">🛡️ Input Guardrail</span>
+                    <span class="activity-badge badge-passed" id="guardrailBadge">Passed</span>
+                </div>
+                <!-- Supervisor reasoning -->
+                <div class="activity-row" id="supervisorRow">
+                    <span class="activity-label">🧠 Supervisor</span>
+                    <span class="activity-value" id="supervisorReasoningText"></span>
+                </div>
+                <!-- Selected agents -->
+                <div class="activity-row" id="selectedAgentsRow">
+                    <span class="activity-label">⚡ Active Agents</span>
+                    <div class="agent-tags" id="selectedAgentTags"></div>
+                </div>
+                <!-- LLM calls -->
+                <div class="activity-row" id="llmCallsRow">
+                    <span class="activity-label">📊 LLM Calls</span>
+                    <span class="activity-value" id="llmCallsCount">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Draft itinerary preview -->
+        <div class="approval-draft">
+            <div class="approval-draft-label">📋 Draft Itinerary Preview</div>
+            <div class="approval-draft-content pdf-content">
+                <div id="approvalDraftBox" class="result-body"></div>
+            </div>
+        </div>
+
+        <!-- Feedback textarea -->
+        <div class="approval-feedback">
+            <label for="feedbackInput" class="label-xs">Feedback (optional — used when requesting changes)</label>
+            <div class="feedback-input-box">
+                <textarea id="feedbackInput" rows="2"
+                    placeholder="e.g., Change hotel to a 5-star near the beach, add a day trip to nearby islands..."></textarea>
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="approval-actions">
+            <button class="btn-approve" id="approveBtn" onclick="approveItinerary()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="approveBtnText">Approve & Finalize</span>
+                <span id="approveBtnLoader" class="spin hidden"></span>
+            </button>
+            <button class="btn-revise" id="reviseBtn" onclick="requestChanges()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span id="reviseBtnText">Request Changes</span>
+                <span id="reviseBtnLoader" class="spin hidden"></span>
+            </button>
+        </div>
+
+    </div>
 
 </div>
 </section>
@@ -220,6 +342,36 @@
             </div>
         </div>
 
+        <!-- Agent Activity Panel in result -->
+        <div class="agent-activity-panel" id="resultAgentPanel">
+            <button class="agent-activity-toggle" id="resultAgentToggle" onclick="toggleResultAgentPanel()">
+                <span>🤖 Agent Activity & Details</span>
+                <svg class="toggle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="agent-activity-body hidden" id="resultAgentBody">
+                <div class="activity-row">
+                    <span class="activity-label">🛡️ Input Guardrail</span>
+                    <span class="activity-badge badge-passed" id="resultGuardrailBadge">Passed</span>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-label">🧠 Supervisor</span>
+                    <span class="activity-value" id="resultSupervisorText"></span>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-label">⚡ Active Agents</span>
+                    <div class="agent-tags" id="resultAgentTags"></div>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-label">👤 Human Review</span>
+                    <span class="activity-badge" id="resultApprovalBadge">—</span>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-label">📊 LLM Calls</span>
+                    <span class="activity-value" id="resultLlmCalls">0</span>
+                </div>
+            </div>
+        </div>
+
         <!-- This white box is what gets exported to PDF -->
         <div id="pdfContent" class="pdf-content">
             <div class="pdf-header-block" id="pdfHeaderBlock">
@@ -244,7 +396,7 @@
     <div class="section-head" data-reveal>
         <span class="eyebrow">Architecture</span>
         <h2>How TripMate AI works</h2>
-        <p>Five specialist agents, three live APIs, one coherent itinerary.</p>
+        <p>Guardrails, dynamic supervisor, five specialist agents, human-in-the-loop, one coherent itinerary.</p>
     </div>
 
     <!-- Agent pipeline — visual horizontal flow -->
@@ -254,10 +406,16 @@
             <div class="pipe-label">Your Query</div>
         </div>
         <div class="pipe-arrow"></div>
+        <div class="pipe-node accent-red">
+            <div class="pipe-emoji">🛡️</div>
+            <div class="pipe-label">Guardrail</div>
+            <div class="pipe-sub">Safety Check</div>
+        </div>
+        <div class="pipe-arrow"></div>
         <div class="pipe-node accent-blue">
             <div class="pipe-emoji">🧠</div>
-            <div class="pipe-label">LangGraph</div>
-            <div class="pipe-sub">Orchestrator</div>
+            <div class="pipe-label">Supervisor</div>
+            <div class="pipe-sub">Agent Router</div>
         </div>
         <div class="pipe-arrow"></div>
         <div class="pipe-node accent-purple">
@@ -278,17 +436,35 @@
             <div class="pipe-sub">OpenWeatherMap</div>
         </div>
         <div class="pipe-arrow"></div>
+        <div class="pipe-node accent-yellow">
+            <div class="pipe-emoji">💰</div>
+            <div class="pipe-label">Budget</div>
+            <div class="pipe-sub">Cost Analysis</div>
+        </div>
+        <div class="pipe-arrow"></div>
         <div class="pipe-node accent-green">
             <div class="pipe-emoji">📋</div>
             <div class="pipe-label">Itinerary</div>
-            <div class="pipe-sub">Final Plan</div>
+            <div class="pipe-sub">Draft Plan</div>
+        </div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-node accent-amber">
+            <div class="pipe-emoji">👤</div>
+            <div class="pipe-label">Human</div>
+            <div class="pipe-sub">Review & Approve</div>
+        </div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-node accent-green">
+            <div class="pipe-emoji">✅</div>
+            <div class="pipe-label">Final Plan</div>
+            <div class="pipe-sub">Polished Output</div>
         </div>
     </div>
 
     <!-- Architecture image -->
     <div class="arch-img-wrap glass-card" data-reveal>
         <div class="arch-img-label">System Architecture</div>
-        <img src="/static/architecture.png" alt="TripMate AI Architecture" class="arch-img" loading="lazy">
+        <img src="/static/architecture.png" alt="TripMate AI Architecture — Full 8-step pipeline with guardrails, supervisor, specialist agents, HITL, and persistence" class="arch-img" loading="lazy">
     </div>
 
     <!-- MCP explainer — 2-col compact -->
@@ -389,6 +565,16 @@
             <div class="si-name">OpenWeatherMap</div>
             <div class="si-role">Weather Data</div>
         </div>
+        <div class="stack-item">
+            <div class="si-icon">🛡️</div>
+            <div class="si-name">Guardrails</div>
+            <div class="si-role">Input Safety</div>
+        </div>
+        <div class="stack-item">
+            <div class="si-icon">👤</div>
+            <div class="si-name">HITL</div>
+            <div class="si-role">Human Approval</div>
+        </div>
     </div>
 
 </div>
@@ -400,7 +586,7 @@
 <footer class="footer">
     <div class="footer-inner">
         <p class="footer-brand">TripMate AI</p>
-        <p class="footer-stack">FastAPI · LangGraph · Groq · PostgreSQL · MCP</p>
+        <p class="footer-stack">FastAPI · LangGraph · Groq · PostgreSQL · MCP · Guardrails · HITL</p>
         <p class="footer-by">Made with ❤️ in India by <strong>Aditya Pandey</strong></p>
         <div class="footer-socials">
             <a href="https://github.com/addy0328p" target="_blank" rel="noopener" class="social-link">

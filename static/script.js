@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   TripMate AI  —  script.js
+   TripMate AI  —  script.js  v2
    Covers:
    • Floating particles
    • Nav scroll + active link spy
@@ -7,8 +7,11 @@
    • Animated count-up
    • Rotating placeholder
    • Textarea auto-resize
-   • Loading steps animation
+   • Loading steps animation (7 steps)
    • sendMessage / showResult / showError
+   • HITL: approveItinerary / requestChanges / showApproval
+   • Guardrail blocked state
+   • Agent Activity Panel toggle
    • copyResult
    • downloadPDF  (fixed – white background, header shown)
 ═══════════════════════════════════════════════════════════ */
@@ -20,6 +23,7 @@
 ───────────────────────────────────────── */
 let currentThreadId      = localStorage.getItem("travel_thread_id") || null;
 let latestAnswerMarkdown = "";
+let latestResponseData   = null;   // full API response for agent panel
 let loadingTimer         = null;
 
 /* ─────────────────────────────────────────
@@ -191,10 +195,10 @@ function initTextareaResize() {
 }
 
 /* ─────────────────────────────────────────
-   LOADING STEPS
+   LOADING STEPS (7 steps)
 ───────────────────────────────────────── */
-const STEP_IDS    = ["ls1", "ls2", "ls3", "ls4"];
-const STEP_DELAYS = [0, 2200, 4800, 8000]; // ms after loading starts
+const STEP_IDS    = ["ls1", "ls2", "ls3", "ls4", "ls5", "ls6", "ls7"];
+const STEP_DELAYS = [0, 1800, 3600, 5400, 7600, 10000, 13000]; // ms after loading starts
 
 function startLoadingSteps() {
     // reset
@@ -263,6 +267,19 @@ function hideError() {
     box.textContent = "";
 }
 
+function hideAllSections() {
+    document.getElementById("resultSection").classList.add("hidden");
+    document.getElementById("approvalSection").classList.add("hidden");
+    document.getElementById("guardrailBlocked").classList.add("hidden");
+}
+
+function resetToPlanner() {
+    hideAllSections();
+    hideError();
+    document.getElementById("userInput").value = "";
+    document.getElementById("planner").scrollIntoView({ behavior: "smooth" });
+}
+
 /* ─────────────────────────────────────────
    SET PROMPT (quick chips)
 ───────────────────────────────────────── */
@@ -276,10 +293,145 @@ function setPrompt(text) {
 }
 
 /* ─────────────────────────────────────────
-   SHOW RESULT
+   AGENT ACTIVITY PANEL HELPERS
 ───────────────────────────────────────── */
-function showResult(answer, threadId) {
+const AGENT_DISPLAY = {
+    flight_agent:    { emoji: "✈️", label: "Flight Agent" },
+    hotel_agent:     { emoji: "🏨", label: "Hotel Agent" },
+    weather_agent:   { emoji: "🌤️", label: "Weather Agent" },
+    budget_agent:    { emoji: "💰", label: "Budget Agent" },
+    itinerary_agent: { emoji: "📋", label: "Itinerary Agent" },
+};
+
+function renderAgentTags(container, selectedAgents) {
+    container.innerHTML = "";
+    const allAgents = Object.keys(AGENT_DISPLAY);
+
+    allAgents.forEach(agent => {
+        const info = AGENT_DISPLAY[agent];
+        const isActive = selectedAgents.includes(agent);
+        const tag = document.createElement("span");
+        tag.className = `agent-tag ${isActive ? "agent-active" : "agent-skipped"}`;
+        tag.textContent = `${info.emoji} ${info.label}`;
+        container.appendChild(tag);
+    });
+}
+
+function populateAgentPanel(data, prefix) {
+    // Guardrail badge
+    const guardrailBadge = document.getElementById(`${prefix}GuardrailBadge`);
+    if (guardrailBadge) {
+        if (data.guardrail_allowed) {
+            guardrailBadge.textContent = "✅ Passed";
+            guardrailBadge.className = "activity-badge badge-passed";
+        } else {
+            guardrailBadge.textContent = "❌ Blocked";
+            guardrailBadge.className = "activity-badge badge-blocked";
+        }
+    }
+
+    // Supervisor reasoning
+    const supervisorText = document.getElementById(`${prefix}SupervisorText`) ||
+                           document.getElementById(`${prefix}ReasoningText`);
+    if (supervisorText) {
+        supervisorText.textContent = data.supervisor_reasoning || "Dynamic routing applied";
+    }
+
+    // Agent tags
+    const tagContainer = document.getElementById(`${prefix}AgentTags`);
+    if (tagContainer) {
+        renderAgentTags(tagContainer, data.selected_agents || []);
+    }
+
+    // LLM calls
+    const llmEl = document.getElementById(`${prefix}LlmCalls`) ||
+                  document.getElementById(`${prefix}CallsCount`);
+    if (llmEl) {
+        llmEl.textContent = data.llm_calls || 0;
+    }
+}
+
+function toggleAgentPanel() {
+    const body = document.getElementById("agentActivityBody");
+    const toggle = document.getElementById("agentActivityToggle");
+    body.classList.toggle("hidden");
+    toggle.classList.toggle("open");
+}
+
+function toggleResultAgentPanel() {
+    const body = document.getElementById("resultAgentBody");
+    const toggle = document.getElementById("resultAgentToggle");
+    body.classList.toggle("hidden");
+    toggle.classList.toggle("open");
+}
+
+/* ─────────────────────────────────────────
+   SHOW GUARDRAIL BLOCKED
+───────────────────────────────────────── */
+function showGuardrailBlocked(reason) {
+    hideAllSections();
+    const card = document.getElementById("guardrailBlocked");
+    const reasonEl = document.getElementById("guardrailBlockedReason");
+    reasonEl.textContent = reason || "This request was blocked by the travel input guardrail.";
+    card.classList.remove("hidden");
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/* ─────────────────────────────────────────
+   SHOW APPROVAL (HITL)
+───────────────────────────────────────── */
+function showApproval(data) {
+    hideAllSections();
+    latestResponseData = data;
+
+    const section  = document.getElementById("approvalSection");
+    const threadEl = document.getElementById("approvalThreadInfo");
+    const draftBox = document.getElementById("approvalDraftBox");
+
+    threadEl.textContent = `Thread: ${data.thread_id}`;
+
+    // Render draft itinerary
+    const draft = data.itinerary || data.answer || "";
+    if (typeof marked !== "undefined") {
+        marked.setOptions({ breaks: true, gfm: true });
+        draftBox.innerHTML = marked.parse(draft);
+    } else {
+        draftBox.innerText = draft;
+    }
+
+    // Populate agent activity panel
+    populateAgentPanel(data, "guardrail");
+    const supervisorReasoningText = document.getElementById("supervisorReasoningText");
+    if (supervisorReasoningText) {
+        supervisorReasoningText.textContent = data.supervisor_reasoning || "Dynamic routing applied";
+    }
+    const selectedAgentTags = document.getElementById("selectedAgentTags");
+    if (selectedAgentTags) {
+        renderAgentTags(selectedAgentTags, data.selected_agents || []);
+    }
+    const llmCallsCount = document.getElementById("llmCallsCount");
+    if (llmCallsCount) {
+        llmCallsCount.textContent = data.llm_calls || 0;
+    }
+
+    // Clear previous feedback
+    const feedbackInput = document.getElementById("feedbackInput");
+    if (feedbackInput) feedbackInput.value = "";
+
+    // Show section
+    section.classList.remove("hidden");
+    setTimeout(() => {
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+}
+
+/* ─────────────────────────────────────────
+   SHOW RESULT (final)
+───────────────────────────────────────── */
+function showResult(answer, threadId, data) {
+    hideAllSections();
     latestAnswerMarkdown = answer;
+    latestResponseData = data || {};
 
     const section  = document.getElementById("resultSection");
     const card     = section.querySelector(".result-card");
@@ -295,6 +447,26 @@ function showResult(answer, threadId) {
     }
 
     threadEl.textContent = `Thread: ${threadId}`;
+
+    // Populate result agent activity panel
+    if (data) {
+        populateAgentPanel(data, "result");
+        const approvalBadge = document.getElementById("resultApprovalBadge");
+        if (approvalBadge) {
+            if (data.approved === true) {
+                approvalBadge.textContent = "✅ Approved";
+                approvalBadge.className = "activity-badge badge-passed";
+            } else if (data.approved === false) {
+                approvalBadge.textContent = "✏️ Revised";
+                approvalBadge.className = "activity-badge badge-revised";
+            } else {
+                approvalBadge.textContent = "—";
+                approvalBadge.className = "activity-badge";
+            }
+        }
+        const resultLlmCalls = document.getElementById("resultLlmCalls");
+        if (resultLlmCalls) resultLlmCalls.textContent = data.llm_calls || 0;
+    }
 
     // show section
     section.classList.remove("hidden");
@@ -315,6 +487,7 @@ function showResult(answer, threadId) {
 ───────────────────────────────────────── */
 async function sendMessage() {
     hideError();
+    hideAllSections();
 
     const input   = document.getElementById("userInput");
     const message = input.value.trim();
@@ -330,7 +503,7 @@ async function sendMessage() {
         const res  = await fetch("/api/travel", {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ message, thread_id: currentThreadId }),
+            body:    JSON.stringify({ message, thread_id: null }),
         });
 
         const data = await res.json();
@@ -342,12 +515,122 @@ async function sendMessage() {
         currentThreadId = data.thread_id;
         localStorage.setItem("travel_thread_id", currentThreadId);
 
-        showResult(data.answer, data.thread_id);
+        // Check if guardrail blocked the request
+        if (data.guardrail_allowed === false) {
+            showGuardrailBlocked(data.guardrail_reason || data.answer);
+            return;
+        }
+
+        // Check if HITL approval is needed
+        if (data.requires_approval) {
+            showApproval(data);
+            return;
+        }
+
+        // Otherwise show final result directly
+        showResult(data.answer, data.thread_id, data);
 
     } catch (err) {
         showError(err.message);
     } finally {
         setLoading(false);
+    }
+}
+
+/* ─────────────────────────────────────────
+   HITL: APPROVE ITINERARY
+───────────────────────────────────────── */
+async function approveItinerary() {
+    if (!currentThreadId) {
+        showError("No active thread. Please generate a plan first.");
+        return;
+    }
+
+    const approveBtn = document.getElementById("approveBtn");
+    const reviseBtn  = document.getElementById("reviseBtn");
+    const btnText    = document.getElementById("approveBtnText");
+    const btnLoader  = document.getElementById("approveBtnLoader");
+
+    approveBtn.disabled = true;
+    reviseBtn.disabled  = true;
+    btnText.classList.add("hidden");
+    btnLoader.classList.remove("hidden");
+
+    try {
+        const res = await fetch("/api/travel/approve", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                thread_id: currentThreadId,
+                approved:  true,
+                feedback:  "",
+            }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || "Approval failed. Please try again.");
+        }
+
+        showResult(data.answer, data.thread_id, data);
+
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        approveBtn.disabled = false;
+        reviseBtn.disabled  = false;
+        btnText.classList.remove("hidden");
+        btnLoader.classList.add("hidden");
+    }
+}
+
+/* ─────────────────────────────────────────
+   HITL: REQUEST CHANGES
+───────────────────────────────────────── */
+async function requestChanges() {
+    if (!currentThreadId) {
+        showError("No active thread. Please generate a plan first.");
+        return;
+    }
+
+    const feedback   = (document.getElementById("feedbackInput").value || "").trim();
+    const approveBtn = document.getElementById("approveBtn");
+    const reviseBtn  = document.getElementById("reviseBtn");
+    const btnText    = document.getElementById("reviseBtnText");
+    const btnLoader  = document.getElementById("reviseBtnLoader");
+
+    approveBtn.disabled = true;
+    reviseBtn.disabled  = true;
+    btnText.classList.add("hidden");
+    btnLoader.classList.remove("hidden");
+
+    try {
+        const res = await fetch("/api/travel/approve", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                thread_id: currentThreadId,
+                approved:  false,
+                feedback:  feedback || "Please improve and revise the itinerary.",
+            }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || "Revision failed. Please try again.");
+        }
+
+        showResult(data.answer, data.thread_id, data);
+
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        approveBtn.disabled = false;
+        reviseBtn.disabled  = false;
+        btnText.classList.remove("hidden");
+        btnLoader.classList.add("hidden");
     }
 }
 
