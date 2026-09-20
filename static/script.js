@@ -328,27 +328,6 @@ function initPromptChips() {
     });
 }
 
-function initJourneyMotion() {
-    const journey = document.querySelector(".hero-journey");
-    if (!journey || prefersReducedMotion.matches || !window.matchMedia("(pointer: fine)").matches) return;
-
-    let frame;
-    journey.addEventListener("pointermove", event => {
-        const bounds = journey.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) / bounds.width - .5;
-        const y = (event.clientY - bounds.top) / bounds.height - .5;
-        cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(() => {
-            journey.style.setProperty("--tilt-x", `${x * 4}deg`);
-            journey.style.setProperty("--tilt-y", `${y * -3}deg`);
-        });
-    });
-    journey.addEventListener("pointerleave", () => {
-        journey.style.setProperty("--tilt-x", "0deg");
-        journey.style.setProperty("--tilt-y", "0deg");
-    });
-}
-
 /* ─────────────────────────────────────────
    AGENT ACTIVITY PANEL HELPERS
 ───────────────────────────────────────── */
@@ -813,5 +792,4 @@ document.addEventListener("DOMContentLoaded", () => {
     initPlaceholderRotation();
     initTextareaResize();
     initPromptChips();
-    initJourneyMotion();
 });
