@@ -25,11 +25,13 @@ let currentThreadId      = localStorage.getItem("travel_thread_id") || null;
 let latestAnswerMarkdown = "";
 let latestResponseData   = null;   // full API response for agent panel
 let loadingTimer         = null;
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /* ─────────────────────────────────────────
    PARTICLES
 ───────────────────────────────────────── */
 function spawnParticles() {
+    if (prefersReducedMotion.matches) return;
     const container = document.getElementById("particles");
     if (!container) return;
 
@@ -175,6 +177,7 @@ let phIdx = 0;
 function initPlaceholderRotation() {
     const ta = document.getElementById("userInput");
     if (!ta) return;
+    if (prefersReducedMotion.matches) return;
     setInterval(() => {
         if (document.activeElement === ta) return;
         phIdx = (phIdx + 1) % PLACEHOLDERS.length;
@@ -201,6 +204,7 @@ const STEP_IDS    = ["ls1", "ls2", "ls3", "ls4", "ls5", "ls6", "ls7"];
 const STEP_DELAYS = [0, 1800, 3600, 5400, 7600, 10000, 13000]; // ms after loading starts
 
 function startLoadingSteps() {
+    setLoadingProgress(8);
     // reset
     STEP_IDS.forEach((id, i) => {
         const el = document.getElementById(id);
@@ -217,6 +221,7 @@ function startLoadingSteps() {
             const curr = document.getElementById(id);
             if (prev) { prev.classList.remove("active"); prev.classList.add("done"); }
             if (curr)   curr.classList.add("active");
+            setLoadingProgress(Math.min(94, 10 + i * 14));
         }, STEP_DELAYS[i]);
     });
 }
@@ -230,6 +235,15 @@ function stopLoadingSteps() {
         const el = document.getElementById(id);
         if (el) { el.classList.remove("active"); el.classList.add("done"); }
     });
+    setLoadingProgress(100);
+}
+
+function setLoadingProgress(value) {
+    const progress = Math.max(0, Math.min(100, value));
+    const fill = document.getElementById("loadingProgressFill");
+    const label = document.getElementById("loadingProgressValue");
+    if (fill) fill.style.width = `${progress}%`;
+    if (label) label.textContent = `${progress}%`;
 }
 
 /* ─────────────────────────────────────────
@@ -256,9 +270,21 @@ function setLoading(on) {
 
 function showError(msg) {
     const box = document.getElementById("errorBox");
-    box.innerHTML = `<strong>⚠️ Error:</strong> ${msg}`;
+    box.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = "⚠️ Error: ";
+    box.append(title, document.createTextNode(String(msg)));
     box.classList.remove("hidden");
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function renderMarkdownSafely(container, markdown) {
+    if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+        container.textContent = markdown;
+        return;
+    }
+    marked.setOptions({ breaks: true, gfm: true });
+    container.innerHTML = DOMPurify.sanitize(marked.parse(markdown));
 }
 
 function hideError() {
@@ -290,6 +316,37 @@ function setPrompt(text) {
     ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
     ta.focus();
     ta.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function initPromptChips() {
+    const chips = document.querySelectorAll("#promptChips .chip");
+    chips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            chips.forEach(item => item.classList.remove("selected"));
+            chip.classList.add("selected");
+        });
+    });
+}
+
+function initJourneyMotion() {
+    const journey = document.querySelector(".hero-journey");
+    if (!journey || prefersReducedMotion.matches || !window.matchMedia("(pointer: fine)").matches) return;
+
+    let frame;
+    journey.addEventListener("pointermove", event => {
+        const bounds = journey.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width - .5;
+        const y = (event.clientY - bounds.top) / bounds.height - .5;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+            journey.style.setProperty("--tilt-x", `${x * 4}deg`);
+            journey.style.setProperty("--tilt-y", `${y * -3}deg`);
+        });
+    });
+    journey.addEventListener("pointerleave", () => {
+        journey.style.setProperty("--tilt-x", "0deg");
+        journey.style.setProperty("--tilt-y", "0deg");
+    });
 }
 
 /* ─────────────────────────────────────────
@@ -392,12 +449,7 @@ function showApproval(data) {
 
     // Render draft itinerary
     const draft = data.itinerary || data.answer || "";
-    if (typeof marked !== "undefined") {
-        marked.setOptions({ breaks: true, gfm: true });
-        draftBox.innerHTML = marked.parse(draft);
-    } else {
-        draftBox.innerText = draft;
-    }
+    renderMarkdownSafely(draftBox, draft);
 
     // Populate agent activity panel
     populateAgentPanel(data, "guardrail");
@@ -439,12 +491,7 @@ function showResult(answer, threadId, data) {
     const threadEl = document.getElementById("threadInfo");
 
     // render markdown
-    if (typeof marked !== "undefined") {
-        marked.setOptions({ breaks: true, gfm: true });
-        box.innerHTML = marked.parse(answer);
-    } else {
-        box.innerText = answer;
-    }
+    renderMarkdownSafely(box, answer);
 
     threadEl.textContent = `Thread: ${threadId}`;
 
@@ -765,4 +812,6 @@ document.addEventListener("DOMContentLoaded", () => {
     initCounts();
     initPlaceholderRotation();
     initTextareaResize();
+    initPromptChips();
+    initJourneyMotion();
 });

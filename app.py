@@ -1,24 +1,34 @@
 from pathlib import Path
-import traceback
 import asyncio
 import concurrent.futures
+import logging
+from contextlib import asynccontextmanager
 import uvicorn
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from backend import run_travel_agent, resume_travel_agent
+from backend import close_resources, run_travel_agent, resume_travel_agent
 
 
 BASE_DIR = Path(__file__).resolve().parent
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+    _executor.shutdown(wait=False, cancel_futures=True)
+    close_resources()
 
 app = FastAPI(
     title="TripMate AI",
     description="LangGraph Multi-Agent Travel Planner with FastAPI Frontend",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
 
@@ -37,19 +47,40 @@ templates = Jinja2Templates(
 
 
 class TravelRequest(BaseModel):
-    message: str
-    thread_id: str | None = None
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    message: str = Field(min_length=1, max_length=4_000)
+    thread_id: str | None = Field(default=None, max_length=200)
 
 
 class ApprovalRequest(BaseModel):
-    thread_id: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    thread_id: str = Field(min_length=1, max_length=200)
     approved: bool
-    feedback: str = ""
+    feedback: str = Field(default="", max_length=4_000)
 
 
 # Thread pool for running the synchronous LangGraph agent
 # without blocking the async event loop.
 _executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+
+def api_response(result: dict) -> dict:
+    """Keep both travel endpoints contract-compatible and consistent."""
+    fields = (
+        "requires_approval", "approval_request", "flight_results",
+        "hotel_results", "weather_results", "budget_results", "itinerary",
+        "selected_agents", "trip_constraints", "supervisor_reasoning",
+        "guardrail_allowed", "guardrail_reason", "approved", "human_feedback",
+        "llm_calls",
+    )
+    return {
+        "success": True,
+        "thread_id": result["thread_id"],
+        "answer": result["answer"],
+        **{field: result.get(field) for field in fields},
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -78,7 +109,7 @@ async def travel_planner(request_data: TravelRequest):
         # Run the synchronous agent in a thread so it doesn't
         # block the event loop, and its own async calls
         # (run_async in backend.py) get a clean thread context.
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             _executor,
             lambda: run_travel_agent(
@@ -87,38 +118,16 @@ async def travel_planner(request_data: TravelRequest):
             )
         )
 
-        return JSONResponse(
-            content={
-                "success": True,
-                "thread_id": result["thread_id"],
-                "answer": result["answer"],
-                "requires_approval": result.get("requires_approval", False),
-                "approval_request": result.get("approval_request", ""),
-                "flight_results": result.get("flight_results", ""),
-                "hotel_results": result.get("hotel_results", ""),
-                "weather_results": result.get("weather_results", ""),
-                "budget_results": result.get("budget_results", ""),
-                "itinerary": result.get("itinerary", ""),
-                "selected_agents": result.get("selected_agents", []),
-                "trip_constraints": result.get("trip_constraints", {}),
-                "supervisor_reasoning": result.get("supervisor_reasoning", ""),
-                "guardrail_allowed": result.get("guardrail_allowed", True),
-                "guardrail_reason": result.get("guardrail_reason", ""),
-                "approved": result.get("approved"),
-                "human_feedback": result.get("human_feedback", ""),
-                "llm_calls": result.get("llm_calls", 0),
-            }
-        )
+        return JSONResponse(content=api_response(result))
 
-    except Exception as e:
-        print("ERROR:", e)
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Travel-planning request failed")
 
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "error": str(e)
+                "error": "Unable to create a travel plan right now. Please try again."
             }
         )
 
@@ -136,7 +145,7 @@ async def approve_itinerary(request_data: ApprovalRequest):
                 }
             )
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             _executor,
             lambda: resume_travel_agent(
@@ -146,38 +155,16 @@ async def approve_itinerary(request_data: ApprovalRequest):
             )
         )
 
-        return JSONResponse(
-            content={
-                "success": True,
-                "thread_id": result["thread_id"],
-                "answer": result["answer"],
-                "requires_approval": result.get("requires_approval", False),
-                "approval_request": result.get("approval_request", ""),
-                "flight_results": result.get("flight_results", ""),
-                "hotel_results": result.get("hotel_results", ""),
-                "weather_results": result.get("weather_results", ""),
-                "budget_results": result.get("budget_results", ""),
-                "itinerary": result.get("itinerary", ""),
-                "selected_agents": result.get("selected_agents", []),
-                "trip_constraints": result.get("trip_constraints", {}),
-                "supervisor_reasoning": result.get("supervisor_reasoning", ""),
-                "guardrail_allowed": result.get("guardrail_allowed", True),
-                "guardrail_reason": result.get("guardrail_reason", ""),
-                "approved": result.get("approved"),
-                "human_feedback": result.get("human_feedback", ""),
-                "llm_calls": result.get("llm_calls", 0),
-            }
-        )
+        return JSONResponse(content=api_response(result))
 
-    except Exception as e:
-        print("APPROVAL ERROR:", e)
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Travel-plan approval failed")
 
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "error": str(e)
+                "error": "Unable to finalize this travel plan right now. Please try again."
             }
         )
 

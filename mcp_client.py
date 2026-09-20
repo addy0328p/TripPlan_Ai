@@ -5,7 +5,6 @@ from pathlib import Path
 import certifi
 from dotenv import load_dotenv
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_groq import ChatGroq
 
 
 # ==========================================
@@ -20,7 +19,6 @@ load_dotenv()
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 AVIATION_STACK_API_KEY = os.getenv("AVIATIONSTACK_API_KEY")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
 # Automatically find the current project folder.
@@ -39,16 +37,6 @@ AVIATION_ENV["AVIATION_STACK_API_KEY"] = (
 WEATHER_ENV = os.environ.copy()
 WEATHER_ENV["OPENWEATHER_API_KEY"] = (
     OPENWEATHER_API_KEY or ""
-)
-
-
-# ==========================================
-# LLM
-# ==========================================
-
-llm = ChatGroq(
-    model="openai/gpt-oss-120b",
-    api_key=GROQ_API_KEY
 )
 
 
@@ -350,15 +338,21 @@ async def forecast_mcp_search(city: str):
 # ==========================================
 
 def extract_destination(query: str):
-    prompt = f"""
-    Extract only the destination city or country.
+    """Return a useful destination candidate without spending an LLM call.
 
-    Query:
-    {query}
-
-    Return only destination name.
+    This intentionally handles the common, explicit forms first.  The weather
+    agent can still fall back gracefully if a request is too ambiguous.
     """
+    import re
 
-    response = llm.invoke(prompt)
-
-    return response.content.strip()
+    text = " ".join(query.strip().split())
+    patterns = (
+        r"\b(?:trip|travel|visit|vacation|holiday|stay)\s+(?:to|in)\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?=\s+(?:from|for|with|under|on|in)\b|[,.!?]|$)",
+        r"\bto\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?=\s+(?:from|for|with|under|on|in)\b|[,.!?]|$)",
+        r"\bin\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?=\s+(?:from|for|with|under|on)\b|[,.!?]|$)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip(" .,-")
+    return "the destination in your request"

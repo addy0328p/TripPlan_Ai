@@ -98,6 +98,31 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
 
+        <div class="hero-journey" data-reveal data-delay="4" aria-label="Live trip-planning preview">
+            <div class="journey-topline">
+                <span class="journey-live"><i></i> Trip intelligence is live</span>
+                <span class="journey-status">Planning · 01</span>
+            </div>
+            <div class="journey-route">
+                <div class="route-stop">
+                    <span class="route-code">DEL</span>
+                    <span class="route-city">New Delhi</span>
+                </div>
+                <div class="route-line" aria-hidden="true">
+                    <span class="route-plane">✈</span>
+                </div>
+                <div class="route-stop route-stop-end">
+                    <span class="route-code">GOI</span>
+                    <span class="route-city">Goa</span>
+                </div>
+            </div>
+            <div class="journey-signals" aria-hidden="true">
+                <span><b>✦</b> Flights scanned</span>
+                <span><b>☼</b> Weather checked</span>
+                <span><b>₹</b> Budget aligned</span>
+            </div>
+        </div>
+
     </div>
 
 
@@ -174,7 +199,13 @@
     <!-- Loading state -->
     <div id="loadingState" class="loading-card glass-card hidden">
         <div class="loading-ring"></div>
-        <div class="loading-steps">
+        <div class="loading-content">
+            <div class="loading-title-row">
+                <span>Building your trip</span>
+                <span id="loadingProgressValue">0%</span>
+            </div>
+            <div class="loading-progress" aria-hidden="true"><span id="loadingProgressFill"></span></div>
+            <div class="loading-steps" aria-live="polite">
             <div class="loading-step active" id="ls1">
                 <span class="ls-icon">🛡️</span>
                 <span>Validating request (Guardrail)...</span>
@@ -202,6 +233,7 @@
             <div class="loading-step" id="ls7">
                 <span class="ls-icon">📋</span>
                 <span>Crafting itinerary...</span>
+            </div>
             </div>
         </div>
     </div>
@@ -602,6 +634,7 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="/static/script.js"></script>
 </body>

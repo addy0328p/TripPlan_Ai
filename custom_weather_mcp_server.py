@@ -9,23 +9,32 @@ mcp = FastMCP("Weather MCP Server")
 
 
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+REQUEST_TIMEOUT_SECONDS = 10
+
+
+def _get_weather_data(url: str, city: str) -> dict:
+    if not OPENWEATHER_API_KEY:
+        return {"error": "OPENWEATHER_API_KEY is not configured."}
+
+    try:
+        response = requests.get(
+            url,
+            params={"q": city, "appid": OPENWEATHER_API_KEY, "units": "metric"},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException:
+        return {"error": "Weather service is temporarily unavailable."}
+    except ValueError:
+        return {"error": "Weather service returned an invalid response."}
 
 
 @mcp.tool()
 def get_current_weather(city: str):
 
-    response = requests.get(
-        "https://api.openweathermap.org/data/2.5/weather",
-        params={
-            "q": city,
-            "appid": OPENWEATHER_API_KEY,
-            "units": "metric"
-        }
-    )
-
-    data = response.json()
-
-    if response.status_code != 200:
+    data = _get_weather_data("https://api.openweathermap.org/data/2.5/weather", city)
+    if "error" in data:
         return data
 
     return {
@@ -46,23 +55,14 @@ def get_forecast(city: str):
         "https://api.openweathermap.org/data/2.5/forecast"
     )
 
-    params = {
-        "q": city,
-        "appid": OPENWEATHER_API_KEY,
-        "units": "metric"
-    }
-
-    response = requests.get(
-        url,
-        params=params
-    )
-
-    data = response.json()
+    data = _get_weather_data(url, city)
+    if "error" in data:
+        return data
 
     forecast = []
 
     # Return first 5 forecast entries
-    for item in data["list"][:5]:
+    for item in data.get("list", [])[:5]:
 
         forecast.append(
             {

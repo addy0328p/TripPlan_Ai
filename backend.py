@@ -12,6 +12,7 @@ import uuid
 import asyncio
 import json
 import psycopg
+from threading import Lock
 from psycopg.rows import dict_row
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -40,7 +41,7 @@ def get_database_url():
     if not database_url:
         raise ValueError(
             "DATABASE_URL is missing. "
-            "Please add your Render PostgreSQL External Database URL to .env"
+            "Set it to a PostgreSQL connection URL before creating a travel plan."
         )
 
     if "sslmode=" not in database_url:
@@ -50,18 +51,27 @@ def get_database_url():
     return database_url
 
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+_llm: ChatGroq | None = None
+_llm_lock = Lock()
 
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY is missing. Please add it to your .env file.")
 
-# =========================
-# LLM - original model kept
-# =========================
-llm = ChatGroq(
-    model="openai/gpt-oss-120b",
-    api_key=GROQ_API_KEY,
-)
+def get_llm() -> ChatGroq:
+    """Create the model only when a travel request is actually made.
+
+    Keeping this lazy lets health checks and static pages start even when a
+    deployment has not yet been configured with its provider credentials.
+    """
+    global _llm
+    if _llm is None:
+        with _llm_lock:
+            if _llm is None:
+                api_key = os.getenv("GROQ_API_KEY")
+                if not api_key:
+                    raise RuntimeError(
+                        "GROQ_API_KEY is missing. Configure it before creating a travel plan."
+                    )
+                _llm = ChatGroq(model="openai/gpt-oss-120b", api_key=api_key)
+    return _llm
 
 # =========================
 # State - original fields kept, new control fields added
@@ -114,7 +124,7 @@ AGENT_ORDER = [
 
 
 def _llm_text(system_prompt: str, user_prompt: str) -> str:
-    response = llm.invoke(
+    response = get_llm().invoke(
         [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
@@ -336,7 +346,7 @@ def flight_agent(state: TravelState):
             airline_data=str(airlines)[:3000],
         )
 
-        response = llm.invoke(
+        response = get_llm().invoke(
             [
                 SystemMessage(content="You are an expert travel flight planner."),
                 HumanMessage(content=prompt),
@@ -474,7 +484,7 @@ Return:
 If exact live prices are unavailable, clearly label estimates as approximate.
 """
 
-    response = llm.invoke(
+    response = get_llm().invoke(
         [
             SystemMessage(content="You are a practical travel budget analyst."),
             HumanMessage(content=prompt),
@@ -517,7 +527,7 @@ Make the itinerary practical, budget-aware, and easy to follow.
 Create a clear draft that is ready for human review.
 """
 
-    response = llm.invoke(
+    response = get_llm().invoke(
         [
             SystemMessage(content="You are an expert travel planner."),
             HumanMessage(content=prompt),
@@ -624,7 +634,7 @@ Important:
 - Incorporate the human feedback when revision was requested.
 """
 
-    response = llm.invoke(
+    response = get_llm().invoke(
         [
             SystemMessage(
                 content="You are a professional AI travel booking assistant."
@@ -719,16 +729,35 @@ graph.add_edge("guardrail_blocked", END)
 # =========================
 # PostgreSQL Checkpointer - original persistence kept
 # =========================
-DATABASE_URL = get_database_url()
-_conn = psycopg.connect(
-    DATABASE_URL,
-    autocommit=True,
-    row_factory=dict_row,
-)
-checkpointer = PostgresSaver(_conn)
-checkpointer.setup()
+_conn: psycopg.Connection | None = None
+travel_graph = None
+_workflow_lock = Lock()
 
-travel_graph = graph.compile(checkpointer=checkpointer)
+
+def get_travel_graph():
+    """Initialize the persistent workflow once, on first use."""
+    global _conn, travel_graph
+    if travel_graph is None:
+        with _workflow_lock:
+            if travel_graph is None:
+                _conn = psycopg.connect(
+                    get_database_url(),
+                    autocommit=True,
+                    row_factory=dict_row,
+                )
+                checkpointer = PostgresSaver(_conn)
+                checkpointer.setup()
+                travel_graph = graph.compile(checkpointer=checkpointer)
+    return travel_graph
+
+
+def close_resources() -> None:
+    """Release the database connection during application shutdown."""
+    global _conn, travel_graph
+    if _conn is not None:
+        _conn.close()
+        _conn = None
+        travel_graph = None
 
 
 # =========================
@@ -794,7 +823,7 @@ def run_travel_agent(user_input: str, thread_id: str | None = None):
 
     config = {"configurable": {"thread_id": thread_id}}
 
-    result = travel_graph.invoke(
+    result = get_travel_graph().invoke(
         {
             "messages": [HumanMessage(content=user_input)],
             "user_query": user_input,
@@ -830,7 +859,7 @@ def resume_travel_agent(
         raise ValueError("thread_id is required to resume a travel plan.")
 
     config = {"configurable": {"thread_id": thread_id}}
-    result = travel_graph.invoke(
+    result = get_travel_graph().invoke(
         Command(
             resume={
                 "approved": approved,
