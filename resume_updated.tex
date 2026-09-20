@@ -1,0 +1,224 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[
+    ignoreheadfoot,
+    top=0.7cm,
+    bottom=0.35cm,
+    left=1cm,
+    right=1cm,
+    footskip=0.5cm
+]{geometry}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage[
+    pdftitle={Aditya Pandey's Resume},
+    pdfauthor={Aditya Pandey},
+    pdfcreator={LaTeX},
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=blue
+]{hyperref}
+\usepackage{bookmark}
+\usepackage{changepage}
+\usepackage{paracol}
+\usepackage{needspace}
+\usepackage{iftex}
+
+% Make the generated PDF searchable and ATS-readable.
+\ifPDFTeX
+    \input{glyphtounicode}
+    \pdfgentounicode=1
+    \usepackage[T1]{fontenc}
+    \usepackage[utf8]{inputenc}
+    \usepackage{lmodern}
+\fi
+
+\usepackage{charter}
+
+\raggedright
+\pagestyle{empty}
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+\setlength{\topskip}{0pt}
+\setlength{\columnsep}{0.15cm}
+\pagenumbering{gobble}
+
+\titleformat{\section}
+    {\needspace{4\baselineskip}\bfseries\large}
+    {}{0pt}{}
+    [\vspace{1pt}\titlerule]
+
+\titlespacing{\section}{-1pt}{0.11cm}{0.10cm}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\small$\bullet$}}$}
+
+\newenvironment{highlights}{
+    \begin{itemize}[
+        topsep=0.06cm,
+        parsep=0.04cm,
+        partopsep=0pt,
+        itemsep=0pt,
+        leftmargin=10pt
+    ]
+}{
+    \end{itemize}
+}
+
+\newenvironment{onecolentry}{
+    \begin{adjustwidth}{0.00001cm}{0.00001cm}
+}{
+    \end{adjustwidth}
+}
+
+\newenvironment{twocolentry}[1]{
+    \onecolentry
+    \def\secondColumn{#1}
+    \setcolumnwidth{\fill,4.5cm}
+    \begin{paracol}{2}
+}{
+    \switchcolumn
+    \raggedleft
+    \secondColumn
+    \end{paracol}
+    \endonecolentry
+}
+
+\newcommand{\AND}{\unskip\kern5pt\textbar\kern5pt}
+\let\hrefWithoutArrow\href
+
+\begin{document}
+
+\begin{center}
+    {\fontsize{25pt}{25pt}\selectfont\textbf{Aditya Pandey}}\\[3pt]
+    \textit{Software Engineer \;|\; Backend Developer \;|\; AI/ML Enthusiast}
+
+    \vspace{5pt}
+
+    {\small
+        +91-9140541879 \quad
+        \href{mailto:aditya12bone@gmail.com}{aditya12bone@gmail.com} \quad
+        \href{https://www.linkedin.com/in/aditya-p01/}{LinkedIn} \quad
+        \href{https://aditya-portfolio-pi-nine.vercel.app/}{Portfolio}
+    }
+\end{center}
+
+\vspace{-11pt}
+
+\section{Education}
+
+\begin{twocolentry}{Nov. 2022 -- June 2026}
+    \textbf{Indian Institute of Information Technology, Bhopal}
+\end{twocolentry}
+\begin{onecolentry}
+    \textbf{Bachelor of Technology (B.Tech) in Information Technology}
+    \hfill \textbf{CGPA: 7.8}
+
+    \vspace{1pt}
+    Relevant Coursework: \textbf{Data Structures and Algorithms},
+    \textbf{Object-Oriented Programming}, \textbf{Database Management Systems},
+    \textbf{Computer Networks}, \textbf{Operating Systems},
+    \textbf{Artificial Intelligence}, and \textbf{Software Engineering}.
+\end{onecolentry}
+
+\section{Experience}
+
+\begin{twocolentry}{\textit{July 2026 -- Present}}
+    \textbf{\href{https://www.linkedin.com/company/indiamart-intermesh-limited/posts/}{IndiaMART} -- Software Development Engineer (Backend AI)}\\
+    \textit{Go, Python, Redis, Kafka, PostgreSQL, GKE, Langfuse, Kibana, Docker}
+\end{twocolentry}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Built a high-concurrency \textbf{Go microservice} for real-time AI replies using \textbf{sync.Pool} and optimized HTTP/database connection pooling, reducing API latency from \textbf{38ms to 7--8ms}.
+        \item Integrated \textbf{OpenAI GPT} for contextual replies and conversation summarization, with \textbf{Langfuse} and \textbf{Kibana} for LLM tracing, monitoring, and observability.
+        \item Developing a \textbf{sales AI agent} that automates seller workflows and improves the efficiency of seller interactions across the platform.
+    \end{highlights}
+\end{onecolentry}
+
+\begin{twocolentry}{\textit{December 2025 -- May 2026}}
+    \textbf{\href{https://www.linkedin.com/company/causalfunnel/}{CausalFunnel} -- Software Developer Intern}\\
+    \textit{MongoDB, Python, Remix, React.js, REST APIs, JavaScript}
+\end{twocolentry}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Improved \textbf{Heatmap} and \textbf{User Journey} analytics features, increasing frontend responsiveness by \textbf{25\%}.
+        \item Resolved \textbf{30+ API and JSON issues} across React and Python services, reducing API errors by \textbf{40\%}.
+        \item Enhanced \textbf{A/B testing} workflows and fixed UI inconsistencies across \textbf{50+ components}, improving reliability and user experience.
+    \end{highlights}
+\end{onecolentry}
+
+\section{Projects}
+
+% TripAI is intentionally listed first.
+\begin{twocolentry}{
+    \hrefWithoutArrow{https://github.com/addy0328p/TripPlan_Ai}{GitHub} \AND
+    \hrefWithoutArrow{https://tripplan-ai.onrender.com/}{Live}
+}
+    {\fontsize{11.2pt}{13pt}\selectfont\textbf{TripAI -- Multi-Agent Travel Planner}}\\
+    \textit{Python, FastAPI, LangGraph, LangChain, MCP, PostgreSQL, Groq, Docker}
+\end{twocolentry}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Built a \textbf{multi-agent travel planning platform} with supervisor-based routing across flight, hotel, weather, budget, and itinerary agents.
+        \item Integrated \textbf{Tavily, AviationStack, and OpenWeather} through MCP tools to provide live travel research with graceful service fallbacks.
+        \item Implemented \textbf{human-in-the-loop approval}, PostgreSQL workflow persistence, input guardrails, and a responsive animated interface; containerized the full stack with Docker.
+    \end{highlights}
+\end{onecolentry}
+
+\begin{twocolentry}{
+    \hrefWithoutArrow{https://github.com/addy0328p/Gen_AI_Project/tree/main}{GitHub}
+}
+    {\fontsize{11.2pt}{13pt}\selectfont\textbf{Image Generation using GAN}}\\
+    \textit{Python, TensorFlow, Keras, GANs, CIFAR-10, NumPy, Matplotlib}
+\end{twocolentry}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Developed an \textbf{AI image-generation system} using GANs trained on the \textbf{CIFAR-10 dataset of 50K+ images}.
+        \item Designed and optimized independent \textbf{Generator and Discriminator} networks for stable adversarial training and diverse synthetic outputs.
+        \item Built TensorFlow/Keras training, evaluation, and visualization pipelines using \textbf{NumPy and Matplotlib}.
+    \end{highlights}
+\end{onecolentry}
+
+\begin{twocolentry}{
+    \hrefWithoutArrow{https://github.com/addy0328p/mern_auction_platform_backend}{GitHub} \AND
+    \hrefWithoutArrow{https://ephemeral-pegasus-ac7e2d.netlify.app/}{Live}
+}
+    {\fontsize{11.2pt}{13pt}\selectfont\textbf{Prime Bid -- Real-Time Auction Platform}}\\
+    \textit{React, Node.js, Express.js, MongoDB, JWT, Bcrypt, Cloudinary, Node-Cron}
+\end{twocolentry}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Developed a real-time auction platform supporting \textbf{100+ concurrent users} and \textbf{50+ bids per second}.
+        \item Streamlined an admin dashboard for \textbf{1K+ users} and \textbf{500+ listings}, reducing manual effort by \textbf{80\%}.
+        \item Automated auction management for \textbf{200+ monthly listings} and secured authentication with \textbf{JWT and Bcrypt}.
+    \end{highlights}
+\end{onecolentry}
+
+\section{Online Profiles}
+
+\begin{onecolentry}
+    \begin{highlights}
+        \item \textbf{\href{https://leetcode.com/u/coder_a_D/}{LeetCode}} -- Solved \textbf{500+ problems} focused on data structures, algorithms, and problem-solving.
+        \item \textbf{\href{https://www.geeksforgeeks.org/user/aditya1ffgc/}{GeeksforGeeks}} -- Solved \textbf{200+ DSA problems} emphasizing optimization and algorithmic efficiency.
+        \item \textbf{\href{https://www.codechef.com/users/main_atom_88/}{CodeChef}} -- Achieved a \textbf{3-star rating (max 1717)} and actively participates in competitive programming contests.
+        \item \textbf{\href{https://codeforces.com/profile/aditya12bone}{Codeforces}} -- Achieved \textbf{Specialist rank (max rating 1410)} through consistent contest performance.
+    \end{highlights}
+\end{onecolentry}
+
+\section{Technical Skills}
+
+\begin{onecolentry}
+    \begin{highlights}
+        \item \textbf{Languages:} Go, Python, SQL, JavaScript (ES6+), C++, Java
+        \item \textbf{Generative AI:} LLM application development, RAG, MCP, LangGraph, LangChain, agentic workflows, multi-agent systems, prompt engineering, tool calling, embeddings, and vector search
+        \item \textbf{Backend \& Distributed Systems:} FastAPI, Node.js, Express.js, REST APIs, microservices, asynchronous processing, concurrency, Kafka, Redis, API integration, authentication, and connection pooling
+        \item \textbf{Databases \& Data:} PostgreSQL, MongoDB, MySQL, Prisma, Supabase, database design, query optimization, and caching
+        \item \textbf{Cloud, DevOps \& Observability:} Docker, Kubernetes, GKE, CI/CD, Git, GitHub, Langfuse, Kibana, Postman, Render, and Vercel
+    \end{highlights}
+\end{onecolentry}
+
+\end{document}

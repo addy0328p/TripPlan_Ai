@@ -58,6 +58,42 @@ function spawnParticles() {
     }
 }
 
+function spawnDataStreams() {
+    if (prefersReducedMotion.matches) return;
+    const container = document.getElementById("dataStreams");
+    if (!container) return;
+
+    const streamCount = window.innerWidth < 700 ? 5 : 10;
+    const tokens = ["01", "AI", "MCP", "API", "GO", "RAG", "{ }", "//", "λ", "SYS"];
+
+    for (let i = 0; i < streamCount; i++) {
+        const stream = document.createElement("span");
+        stream.className = "data-stream";
+        stream.style.left = `${5 + Math.random() * 90}%`;
+        stream.style.animationDelay = `${-Math.random() * 18}s`;
+        stream.style.animationDuration = `${14 + Math.random() * 12}s`;
+        stream.style.opacity = `${.08 + Math.random() * .12}`;
+        stream.textContent = Array.from(
+            { length: 9 },
+            () => tokens[Math.floor(Math.random() * tokens.length)]
+        ).join("\n");
+        container.appendChild(stream);
+    }
+}
+
+function initCyberPointerGlow() {
+    if (prefersReducedMotion.matches || !window.matchMedia("(pointer: fine)").matches) return;
+    let frame = null;
+    window.addEventListener("pointermove", event => {
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+            document.documentElement.style.setProperty("--pointer-x", `${event.clientX}px`);
+            document.documentElement.style.setProperty("--pointer-y", `${event.clientY}px`);
+            frame = null;
+        });
+    }, { passive: true });
+}
+
 /* ─────────────────────────────────────────
    NAV — scroll class + active link spy
 ───────────────────────────────────────── */
@@ -786,6 +822,8 @@ document.addEventListener("keydown", e => {
 ───────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
     spawnParticles();
+    spawnDataStreams();
+    initCyberPointerGlow();
     initNav();
     initReveal();
     initCounts();
