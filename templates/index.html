@@ -143,21 +143,21 @@
         </div>
         <div class="media-inputs">
             <label class="media-picker" id="imageControl" for="imageFile">
-                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg></span>
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m3.5 17 5.5-5 4 4 3-3 4.5 4.5"/></svg></span>
                 <span class="media-action-copy"><strong>Add image</strong><small>Photo or booking</small></span>
                 <span class="media-action-arrow" aria-hidden="true">+</span>
                 <input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="updateMediaSelection()">
             </label>
             <label class="media-picker" id="audioControl" for="audioFile">
-                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M9 6v6M15 6v6M6 9v2M18 9v2"/><path d="M5 16a7 7 0 0 0 14 0"/><path d="M12 23v-2"/></svg></span>
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></span>
                 <span class="media-action-copy"><strong>Add audio</strong><small>Upload a recording</small></span>
                 <span class="media-action-arrow" aria-hidden="true">+</span>
                 <input id="audioFile" type="file" accept=".flac,.mp3,.mp4,.mpeg,.mpga,.m4a,.ogg,.wav,.webm,audio/*" onchange="updateMediaSelection()">
             </label>
             <button class="media-picker media-record" id="recordBtn" type="button" onclick="toggleRecording()" aria-pressed="false">
-                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8"/></svg></span>
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="13" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5m-3.5 0h7"/></svg></span>
                 <span class="media-action-copy"><strong id="recordBtnLabel">Record speech</strong><small id="recordBtnHint">Use your microphone</small></span>
-                <span class="media-record-dot" aria-hidden="true"></span>
+                <span class="media-record-status" id="recordBtnStatus" aria-hidden="true">Start</span>
             </button>
         </div>
         <div class="media-selection-row" aria-live="polite">

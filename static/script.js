@@ -344,6 +344,7 @@ function updateMediaSelection() {
     document.getElementById("recordBtnHint").textContent = recordedAudioFile
         ? "Recording ready"
         : "Use your microphone";
+    document.getElementById("recordBtnStatus").textContent = recordedAudioFile ? "Ready" : "Start";
     document.getElementById("mediaSelection").textContent = selected.length
         ? selected.join("  •  ")
         : "Add a photo or speak instead of typing.";
@@ -366,6 +367,7 @@ async function toggleRecording() {
         mediaRecorder.stop();
         document.getElementById("recordBtnLabel").textContent = "Record speech";
         document.getElementById("recordBtnHint").textContent = "Processing recording";
+        document.getElementById("recordBtnStatus").textContent = "Saving";
         button.setAttribute("aria-pressed", "false");
         button.classList.remove("recording");
         return;
@@ -403,6 +405,7 @@ async function toggleRecording() {
         recorder.start();
         document.getElementById("recordBtnLabel").textContent = "Stop recording";
         document.getElementById("recordBtnHint").textContent = "Tap when finished";
+        document.getElementById("recordBtnStatus").textContent = "Stop";
         button.setAttribute("aria-pressed", "true");
         button.classList.add("recording");
         document.getElementById("mediaSelection").textContent = "Recording speech...";
