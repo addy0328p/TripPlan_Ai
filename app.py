@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 import uvicorn
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,10 +17,18 @@ from backend import (
     run_travel_agent,
     resume_travel_agent,
 )
+from media_processing import (
+    MediaInputError,
+    MediaServiceError,
+    describe_image,
+    transcribe_audio,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_AUDIO_BYTES = 20 * 1024 * 1024
 
 
 @asynccontextmanager
@@ -78,7 +86,7 @@ def api_response(result: dict) -> dict:
         "hotel_results", "weather_results", "budget_results", "itinerary",
         "selected_agents", "trip_constraints", "supervisor_reasoning",
         "guardrail_allowed", "guardrail_reason", "approved", "human_feedback",
-        "llm_calls",
+        "llm_calls", "transcript", "image_context",
     )
     return {
         "success": True,
@@ -135,6 +143,67 @@ async def travel_planner(request_data: TravelRequest):
                 "error": "Unable to create a travel plan right now. Please try again."
             }
         )
+
+
+@app.post("/api/travel/multimodal")
+async def travel_planner_multimodal(
+    message: str = Form(default=""),
+    image: UploadFile | None = File(default=None),
+    audio: UploadFile | None = File(default=None),
+):
+    """Accept text, an image, audio, or any combination in one request."""
+    user_message = message.strip()
+    try:
+        if len(user_message) > 4_000:
+            raise MediaInputError("Message is too long.")
+        if not user_message and image is None and audio is None:
+            raise MediaInputError("Add a request, image, or audio file.")
+
+        image_data = await image.read(MAX_IMAGE_BYTES + 1) if image else None
+        audio_data = await audio.read(MAX_AUDIO_BYTES + 1) if audio else None
+        if image_data is not None and (not image_data or len(image_data) > MAX_IMAGE_BYTES):
+            raise MediaInputError("Image must be between 1 byte and 10 MB.")
+        if audio_data is not None and (not audio_data or len(audio_data) > MAX_AUDIO_BYTES):
+            raise MediaInputError("Audio must be between 1 byte and 20 MB.")
+
+        def plan_with_media():
+            transcript = (
+                transcribe_audio(audio_data, audio.filename, audio.content_type or "")
+                if audio_data is not None else ""
+            )
+            request_parts = [user_message] if user_message else []
+            if transcript:
+                request_parts.append(f"Spoken request: {transcript}")
+            request_text = "\n".join(request_parts) or "Plan a trip inspired by the uploaded image."
+            image_context = (
+                describe_image(image_data, image.content_type or "", request_text)
+                if image_data is not None else ""
+            )
+            return run_travel_agent(
+                user_input=request_text,
+                transcript=transcript,
+                image_context=image_context,
+            )
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(_executor, plan_with_media)
+        return JSONResponse(content=api_response(result))
+    except MediaInputError as exc:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+    except MediaServiceError as exc:
+        logger.warning("Media processing failed: %s", exc)
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)})
+    except Exception:
+        logger.exception("Multimodal travel-planning request failed")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Unable to create a travel plan right now."},
+        )
+    finally:
+        if image is not None:
+            await image.close()
+        if audio is not None:
+            await audio.close()
 
 
 @app.post("/api/travel/approve")

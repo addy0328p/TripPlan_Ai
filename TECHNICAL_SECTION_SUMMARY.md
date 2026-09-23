@@ -35,16 +35,7 @@ Located between the planner card and result section, includes:
   - ✨ Final Agent → Formatting
 - Responsive arrow flow
 
-#### D. MCP Protocol Explanation (Purple gradient)
-- "What is MCP?" explanation
-- Comparison grid: Without MCP vs With MCP
-- Visual architecture diagram showing:
-  - MCP Host (LangGraph)
-  - MCP Client layer
-  - 3 MCP Servers (Tavily, AviationStack, Weather)
-  - External APIs
-
-#### E. Complete Tech Stack Grid
+#### D. Complete Tech Stack Grid
 9 technology cards covering:
 - FastAPI (backend framework)
 - LangGraph (agent orchestration)
@@ -56,7 +47,7 @@ Located between the planner card and result section, includes:
 - AviationStack API (flight data)
 - OpenWeatherMap API (weather data)
 
-#### F. Request Flow Diagram
+#### E. Request Flow Diagram
 6-step visual process flow with numbered circles
 
 ### 3. Additional Features

@@ -12,6 +12,7 @@ The app is built with FastAPI, LangGraph, Groq, PostgreSQL, and Model Context Pr
 - Pauses for human review before producing a final polished plan.
 - Persists a planning thread in PostgreSQL so approval and revision requests can resume the same workflow.
 - Provides a responsive, animated web UI with loading progress, selectable trip prompts, and reduced-motion support.
+- Accepts travel images and spoken requests alongside text. Image observations and speech transcripts are shown for review.
 
 ## How it works
 
@@ -132,6 +133,19 @@ curl -X POST http://127.0.0.1:8001/api/travel \
 ```
 
 When the draft is ready, the response includes `thread_id`, `requires_approval`, and the itinerary. Use that thread ID to finalize or revise it.
+
+### Plan with an image or audio recording
+
+The web page can upload a JPEG, PNG, or WebP image, upload an audio file, or record speech with the microphone. These can be combined with a typed request. The browser sends files to the multipart endpoint:
+
+```bash
+curl -X POST http://127.0.0.1:8001/api/travel/multimodal \
+  -F "message=Plan a trip around this booking" \
+  -F "image=@booking.png" \
+  -F "audio=@request.webm"
+```
+
+Image uploads are limited to 10 MB and audio uploads to 20 MB. The response includes `image_context` and `transcript`; these are saved with the planning thread. Uploaded file bytes are used for the request and are not stored in PostgreSQL. Groq image analysis uses `GROQ_VISION_MODEL` (default `qwen/qwen3.8-27b`), and transcription uses `GROQ_TRANSCRIPTION_MODEL` (default `whisper-large-v3-turbo`). Microphone recording requires browser microphone permission.
 
 ### Approve or revise a draft
 

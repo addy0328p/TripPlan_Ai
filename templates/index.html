@@ -137,6 +137,34 @@
             </button>
         </div>
 
+        <div class="media-tools-heading">
+            <span>Add to your request</span>
+            <span class="media-optional">Optional</span>
+        </div>
+        <div class="media-inputs">
+            <label class="media-picker" id="imageControl" for="imageFile">
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg></span>
+                <span class="media-action-copy"><strong>Add image</strong><small>Photo or booking</small></span>
+                <span class="media-action-arrow" aria-hidden="true">+</span>
+                <input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="updateMediaSelection()">
+            </label>
+            <label class="media-picker" id="audioControl" for="audioFile">
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M9 6v6M15 6v6M6 9v2M18 9v2"/><path d="M5 16a7 7 0 0 0 14 0"/><path d="M12 23v-2"/></svg></span>
+                <span class="media-action-copy"><strong>Add audio</strong><small>Upload a recording</small></span>
+                <span class="media-action-arrow" aria-hidden="true">+</span>
+                <input id="audioFile" type="file" accept=".flac,.mp3,.mp4,.mpeg,.mpga,.m4a,.ogg,.wav,.webm,audio/*" onchange="updateMediaSelection()">
+            </label>
+            <button class="media-picker media-record" id="recordBtn" type="button" onclick="toggleRecording()" aria-pressed="false">
+                <span class="media-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8"/></svg></span>
+                <span class="media-action-copy"><strong id="recordBtnLabel">Record speech</strong><small id="recordBtnHint">Use your microphone</small></span>
+                <span class="media-record-dot" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div class="media-selection-row" aria-live="polite">
+            <span id="mediaSelection" class="media-selection">Add a photo or speak instead of typing.</span>
+            <button class="media-clear hidden" id="clearMediaBtn" type="button" onclick="clearMediaSelection()">Clear attachments</button>
+        </div>
+
         <p class="hint-text">Tip: Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to generate</p>
 
         <!-- Quick prompts -->
@@ -285,6 +313,8 @@
             </div>
         </div>
 
+        <div id="approvalMediaContext" class="media-context hidden"></div>
+
         <!-- Draft itinerary preview -->
         <div class="approval-draft">
             <div class="approval-draft-label">📋 Draft Itinerary Preview</div>
@@ -380,6 +410,8 @@
             </div>
         </div>
 
+        <div id="resultMediaContext" class="media-context hidden"></div>
+
         <!-- This white box is what gets exported to PDF -->
         <div id="pdfContent" class="pdf-content">
             <div class="pdf-header-block" id="pdfHeaderBlock">
@@ -473,43 +505,6 @@
     <div class="arch-img-wrap glass-card" data-reveal>
         <div class="arch-img-label">System Architecture</div>
         <img src="/static/architecture.png" alt="TripMate AI Architecture — Full 8-step pipeline with guardrails, supervisor, specialist agents, HITL, and persistence" class="arch-img" loading="lazy">
-    </div>
-
-    <!-- MCP explainer — 2-col compact -->
-    <div class="mcp-row" data-reveal>
-        <div class="mcp-explain glass-card">
-            <span class="mcp-tag">MCP</span>
-            <h3>Model Context Protocol</h3>
-            <p>Think of MCP as a <strong>universal USB-C port for AI</strong>. Instead of custom wrappers per API, MCP gives one standardized protocol to connect any LLM to any tool — plug & play.</p>
-            <div class="mcp-layers">
-                <div class="mcp-layer-item blue">LangGraph Agent <span>MCP Host</span></div>
-                <div class="mcp-divider">↕ langchain-mcp-adapters (SSE / stdio)</div>
-                <div class="mcp-layer-item green">Tavily · AviationStack · Weather <span>MCP Servers</span></div>
-                <div class="mcp-divider">↕ REST APIs</div>
-                <div class="mcp-layer-item orange">Search · Flights · Weather APIs <span>External</span></div>
-            </div>
-        </div>
-
-        <div class="vs-grid">
-            <div class="vs-card bad glass-card">
-                <div class="vs-head">❌ Without MCP</div>
-                <ul>
-                    <li>Custom wrapper per API</li>
-                    <li>Different auth everywhere</li>
-                    <li>Manual error handling</li>
-                    <li>Hard to add new tools</li>
-                </ul>
-            </div>
-            <div class="vs-card good glass-card">
-                <div class="vs-head">✅ With MCP</div>
-                <ul>
-                    <li>One standard interface</li>
-                    <li>Unified transport layer</li>
-                    <li>Built-in error handling</li>
-                    <li>Plug-and-play tools</li>
-                </ul>
-            </div>
-        </div>
     </div>
 
 </div>

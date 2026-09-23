@@ -26,6 +26,10 @@ let latestAnswerMarkdown = "";
 let latestResponseData   = null;   // full API response for agent panel
 let loadingTimer         = null;
 let newPlanInProgress    = false;
+let recordedAudioFile    = null;
+let mediaRecorder        = null;
+let recordingStream      = null;
+let recordingFinishing   = false;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /* ─────────────────────────────────────────
@@ -293,6 +297,9 @@ function setLoading(on) {
     const card   = document.getElementById("loadingState");
 
     btn.disabled = on;
+    ["imageFile", "audioFile", "recordBtn", "clearMediaBtn"].forEach(id => {
+        document.getElementById(id).disabled = on;
+    });
     text.classList.toggle("hidden", on);
     loader.classList.toggle("hidden", !on);
     card.classList.toggle("hidden", !on);
@@ -322,6 +329,107 @@ function renderMarkdownSafely(container, markdown) {
     }
     marked.setOptions({ breaks: true, gfm: true });
     container.innerHTML = DOMPurify.sanitize(marked.parse(markdown));
+}
+
+function updateMediaSelection() {
+    const image = document.getElementById("imageFile").files[0];
+    const audio = document.getElementById("audioFile").files[0];
+    if (audio) recordedAudioFile = null;
+    const selected = [];
+    if (image) selected.push(`Image ready: ${image.name}`);
+    if (audio || recordedAudioFile) selected.push(`Audio ready: ${(audio || recordedAudioFile).name}`);
+    document.getElementById("imageControl").classList.toggle("has-file", Boolean(image));
+    document.getElementById("audioControl").classList.toggle("has-file", Boolean(audio));
+    document.getElementById("recordBtn").classList.toggle("has-file", Boolean(recordedAudioFile));
+    document.getElementById("recordBtnHint").textContent = recordedAudioFile
+        ? "Recording ready"
+        : "Use your microphone";
+    document.getElementById("mediaSelection").textContent = selected.length
+        ? selected.join("  •  ")
+        : "Add a photo or speak instead of typing.";
+    document.getElementById("clearMediaBtn").classList.toggle("hidden", !selected.length);
+}
+
+function clearMediaSelection() {
+    if (mediaRecorder?.state === "recording") return;
+    document.getElementById("imageFile").value = "";
+    document.getElementById("audioFile").value = "";
+    recordedAudioFile = null;
+    updateMediaSelection();
+}
+
+async function toggleRecording() {
+    const button = document.getElementById("recordBtn");
+    if (recordingFinishing) return;
+    if (mediaRecorder?.state === "recording") {
+        recordingFinishing = true;
+        mediaRecorder.stop();
+        document.getElementById("recordBtnLabel").textContent = "Record speech";
+        document.getElementById("recordBtnHint").textContent = "Processing recording";
+        button.setAttribute("aria-pressed", "false");
+        button.classList.remove("recording");
+        return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        showError("Microphone recording is unavailable in this browser. Upload an audio file instead.");
+        return;
+    }
+    try {
+        recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedAudioFile = null;
+        document.getElementById("audioFile").value = "";
+        updateMediaSelection();
+        const preferredType = ["audio/webm", "audio/ogg", "audio/mp4"]
+            .find(type => MediaRecorder.isTypeSupported(type));
+        mediaRecorder = new MediaRecorder(
+            recordingStream,
+            preferredType ? { mimeType: preferredType } : undefined
+        );
+        const recorder = mediaRecorder;
+        const chunks = [];
+        recorder.ondataavailable = event => {
+            if (event.data.size) chunks.push(event.data);
+        };
+        recorder.onstop = () => {
+            recordingStream.getTracks().forEach(track => track.stop());
+            recordingStream = null;
+            const type = recorder.mimeType || "audio/webm";
+            const extension = type.includes("mp4") ? "mp4" : type.includes("ogg") ? "ogg" : "webm";
+            recordedAudioFile = new File(chunks, `recording.${extension}`, { type });
+            document.getElementById("audioFile").value = "";
+            recordingFinishing = false;
+            updateMediaSelection();
+        };
+        recorder.start();
+        document.getElementById("recordBtnLabel").textContent = "Stop recording";
+        document.getElementById("recordBtnHint").textContent = "Tap when finished";
+        button.setAttribute("aria-pressed", "true");
+        button.classList.add("recording");
+        document.getElementById("mediaSelection").textContent = "Recording speech...";
+    } catch (err) {
+        if (recordingStream) recordingStream.getTracks().forEach(track => track.stop());
+        recordingStream = null;
+        recordingFinishing = false;
+        document.getElementById("recordBtnLabel").textContent = "Record speech";
+        button.setAttribute("aria-pressed", "false");
+        button.classList.remove("recording");
+        updateMediaSelection();
+        showError("Microphone access failed. You can upload an audio file instead.");
+    }
+}
+
+function renderMediaContext(elementId, data) {
+    const container = document.getElementById(elementId);
+    const details = [];
+    if (data.transcript) details.push(`Speech transcript: ${data.transcript}`);
+    if (data.image_context) details.push(`Image observations: ${data.image_context}`);
+    container.replaceChildren();
+    container.classList.toggle("hidden", details.length === 0);
+    if (details.length) {
+        const title = document.createElement("strong");
+        title.textContent = "What the planner understood";
+        container.append(title, document.createTextNode(details.join("\n\n")));
+    }
 }
 
 function hideError() {
@@ -466,6 +574,7 @@ function showApproval(data) {
     // Render draft itinerary
     const draft = data.itinerary || data.answer || "";
     renderMarkdownSafely(draftBox, draft);
+    renderMediaContext("approvalMediaContext", data);
 
     // Populate agent activity panel
     populateAgentPanel(data, "guardrail");
@@ -508,6 +617,7 @@ function showResult(answer, threadId, data) {
 
     // render markdown
     renderMarkdownSafely(box, answer);
+    renderMediaContext("resultMediaContext", data || {});
 
     threadEl.textContent = `Thread: ${threadId}`;
 
@@ -589,9 +699,15 @@ async function sendMessage() {
 
     const input   = document.getElementById("userInput");
     const message = input.value.trim();
+    const image = document.getElementById("imageFile").files[0];
+    const audio = document.getElementById("audioFile").files[0] || recordedAudioFile;
 
-    if (!message) {
-        showError("Please describe your trip first — destination, duration, budget, starting city.");
+    if (mediaRecorder?.state === "recording" || recordingFinishing) {
+        showError("Stop recording before generating the plan.");
+        return;
+    }
+    if (!message && !image && !audio) {
+        showError("Describe your trip, add an image, or record your request first.");
         return;
     }
 
@@ -600,11 +716,20 @@ async function sendMessage() {
     setLoading(true);
 
     try {
-        const res  = await fetch("/api/travel", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ message, thread_id: null }),
-        });
+        let res;
+        if (image || audio) {
+            const form = new FormData();
+            form.append("message", message);
+            if (image) form.append("image", image);
+            if (audio) form.append("audio", audio);
+            res = await fetch("/api/travel/multimodal", { method: "POST", body: form });
+        } else {
+            res = await fetch("/api/travel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message, thread_id: null }),
+            });
+        }
 
         const data = await res.json();
 
@@ -614,6 +739,7 @@ async function sendMessage() {
 
         currentThreadId = data.thread_id;
         localStorage.setItem("travel_thread_id", currentThreadId);
+        clearMediaSelection();
 
         // Check if guardrail blocked the request
         if (data.guardrail_allowed === false) {
