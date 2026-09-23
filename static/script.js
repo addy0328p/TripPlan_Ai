@@ -25,6 +25,7 @@ let currentThreadId      = localStorage.getItem("travel_thread_id") || null;
 let latestAnswerMarkdown = "";
 let latestResponseData   = null;   // full API response for agent panel
 let loadingTimer         = null;
+let newPlanInProgress    = false;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /* ─────────────────────────────────────────
@@ -547,6 +548,41 @@ function showResult(answer, threadId, data) {
 /* ─────────────────────────────────────────
    SEND MESSAGE
 ───────────────────────────────────────── */
+async function restoreSavedPlan() {
+    const savedThreadId = currentThreadId;
+    if (!savedThreadId) return;
+
+    try {
+        const res = await fetch(
+            `/api/travel/state?thread_id=${encodeURIComponent(savedThreadId)}`,
+            { cache: "no-store" }
+        );
+        if (res.status === 404) {
+            if (currentThreadId === savedThreadId) {
+                currentThreadId = null;
+                localStorage.removeItem("travel_thread_id");
+            }
+            return;
+        }
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || "Could not restore the saved trip.");
+        }
+        if (currentThreadId !== savedThreadId || newPlanInProgress) return;
+
+        if (data.guardrail_allowed === false) {
+            showGuardrailBlocked(data.guardrail_reason || data.answer);
+        } else if (data.requires_approval) {
+            showApproval(data);
+        } else {
+            showResult(data.answer, data.thread_id, data);
+        }
+    } catch (err) {
+        if (currentThreadId === savedThreadId && !newPlanInProgress) showError(err.message);
+    }
+}
+
 async function sendMessage() {
     hideError();
     hideAllSections();
@@ -559,6 +595,8 @@ async function sendMessage() {
         return;
     }
 
+    // Keep the previous plan recoverable until the new request succeeds.
+    newPlanInProgress = true;
     setLoading(true);
 
     try {
@@ -594,7 +632,10 @@ async function sendMessage() {
 
     } catch (err) {
         showError(err.message);
+        newPlanInProgress = false;
+        restoreSavedPlan();
     } finally {
+        newPlanInProgress = false;
         setLoading(false);
     }
 }
@@ -830,4 +871,5 @@ document.addEventListener("DOMContentLoaded", () => {
     initPlaceholderRotation();
     initTextareaResize();
     initPromptChips();
+    restoreSavedPlan();
 });

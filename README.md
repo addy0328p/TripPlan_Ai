@@ -143,6 +143,16 @@ curl -X POST http://127.0.0.1:8001/api/travel/approve \
 
 Set `approved` to `true` to finalize the draft. Set it to `false` and provide feedback to request a revised final response.
 
+### Restore a saved plan
+
+The browser saves the latest `thread_id` and reloads its draft review or final result when the page is reopened. To fetch the same checkpoint directly:
+
+```bash
+curl "http://127.0.0.1:8001/api/travel/state?thread_id=user_your_thread_id"
+```
+
+The response uses the same fields as the planning endpoints. An unknown thread returns HTTP 404.
+
 ## Project structure
 
 ```text

@@ -5,13 +5,18 @@ import logging
 from contextlib import asynccontextmanager
 import uvicorn
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend import close_resources, run_travel_agent, resume_travel_agent
+from backend import (
+    close_resources,
+    get_saved_travel_agent,
+    run_travel_agent,
+    resume_travel_agent,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -166,6 +171,32 @@ async def approve_itinerary(request_data: ApprovalRequest):
                 "success": False,
                 "error": "Unable to finalize this travel plan right now. Please try again."
             }
+        )
+
+
+@app.get("/api/travel/state")
+async def get_travel_state(thread_id: str = Query(min_length=1, max_length=200)):
+    """Return a saved draft or final result for browser reload recovery."""
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            _executor,
+            lambda: get_saved_travel_agent(thread_id),
+        )
+        if result is None:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Travel plan not found."},
+            )
+        return JSONResponse(content=api_response(result))
+    except Exception:
+        logger.exception("Travel-plan restore failed")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "Unable to restore this travel plan right now. Please try again.",
+            },
         )
 
 

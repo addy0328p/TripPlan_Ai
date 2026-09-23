@@ -773,6 +773,31 @@ def _interrupt_payload(result: dict[str, Any]) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else {"value": payload}
 
 
+def get_saved_travel_agent(thread_id: str) -> dict[str, Any] | None:
+    """Read a checkpoint so the browser can restore a paused or finished plan."""
+    if not thread_id:
+        return None
+
+    config = {"configurable": {"thread_id": thread_id}}
+    snapshot = get_travel_graph().get_state(config)
+    if not snapshot.values or not snapshot.values.get("user_query"):
+        return None
+
+    result = dict(snapshot.values)
+    interrupts = [
+        item for task in snapshot.tasks for item in task.interrupts
+    ]
+    if interrupts:
+        result["__interrupt__"] = interrupts
+    elif "human_approval" in snapshot.next:
+        result["__interrupt__"] = [{
+            "draft_itinerary": result.get("itinerary", ""),
+            "approval_request": result.get("approval_request", ""),
+        }]
+
+    return _serialize_result(result, thread_id)
+
+
 def _serialize_result(
     result: dict[str, Any],
     thread_id: str,
